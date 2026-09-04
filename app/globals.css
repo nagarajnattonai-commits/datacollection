@@ -2,6 +2,8 @@
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
 
+.workspace-account-link { font-size: 13px; text-decoration: underline; text-underline-offset: 4px; padding: 10px 0; }
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {

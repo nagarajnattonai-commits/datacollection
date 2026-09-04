@@ -1,6 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { getChatGPTUser } from '@/app/chatgpt-auth';
 import { WorkflowError, type Actor, type State, type Role } from './workflow';
+import { assignedRole } from './portals';
 export function localDemo(request: Request) {
   return (
     import.meta.env.DEV &&
@@ -22,10 +23,7 @@ export async function actorFor(request: Request, state: State): Promise<Actor> {
   const user = await getChatGPTUser();
   if (!user) throw new WorkflowError('Sign in to access this workspace.', 401);
   const email = user.email.toLowerCase();
-  const role =
-    email === env.ADMIN_EMAIL?.toLowerCase()
-      ? 'admin'
-      : state.members.find((m) => m.email === email)?.role;
+  const role = assignedRole(email, env.ADMIN_EMAIL, state.members);
   if (!role)
     throw new WorkflowError(
       'Ask the workspace administrator to add your email to the team.',

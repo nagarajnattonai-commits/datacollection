@@ -1,0 +1,383 @@
+.login-home,
+.role-login {
+  min-height: 100svh;
+  color: #202b28;
+  background: #f5f4ee;
+}
+.login-home {
+  padding: 40px clamp(24px, 6vw, 100px);
+}
+.login-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-decoration: none;
+}
+.login-intro {
+  max-width: 740px;
+  margin: 70px 0 42px;
+}
+.login-kicker {
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.16em;
+  margin: 0 0 18px;
+}
+.login-intro h1 {
+  font-size: clamp(32px, 4vw, 52px);
+  line-height: 1.1;
+  letter-spacing: -0.04em;
+  margin: 0 0 20px;
+  font-weight: 550;
+}
+.login-intro > p:last-child {
+  color: #596560;
+  font-size: 17px;
+}
+.portal-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+}
+.portal-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 40px;
+  min-height: 350px;
+  padding: 30px;
+  border-radius: 16px;
+  text-decoration: none;
+  border: 1px solid transparent;
+  transition:
+    transform 0.18s,
+    box-shadow 0.18s;
+}
+.portal-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 30px #202b2815;
+}
+.portal-card-top,
+.portal-card-link {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.portal-card-top > span {
+  font-size: 12px;
+  opacity: 0.7;
+}
+.portal-card h2 {
+  font-size: 25px;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  margin: 0 0 16px;
+  font-weight: 600;
+}
+.portal-card p:not(.login-kicker) {
+  line-height: 1.6;
+  font-size: 14px;
+  opacity: 0.85;
+  margin: 0;
+}
+.portal-card-link {
+  padding-top: 20px;
+  border-top: 1px solid currentColor;
+  font-size: 14px;
+  font-weight: 600;
+}
+.portal-card-contributor {
+  background: #e0e9d9;
+  color: #284537;
+}
+.portal-card-qa {
+  background: #e2e9f6;
+  color: #253c63;
+  border-radius: 4px;
+}
+.portal-card-admin {
+  background: #252332;
+  color: #f6f1e9;
+}
+.login-footnote {
+  font-size: 13px;
+  color: #65706b;
+  margin-top: 32px;
+}
+.role-login {
+  --portal-accent: #284d3d;
+  display: grid;
+  grid-template-columns: 1.08fr 1fr;
+}
+.role-story {
+  padding: clamp(28px, 5vw, 80px);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 56px;
+  background: #e0e9d9;
+}
+.role-story-body {
+  max-width: 500px;
+}
+.role-story h1 {
+  font-size: clamp(38px, 4.7vw, 68px);
+  font-weight: 500;
+  letter-spacing: -0.055em;
+  line-height: 1.02;
+  margin: 0 0 28px;
+}
+.role-story-body > p:not(.login-kicker) {
+  font-size: 17px;
+  line-height: 1.65;
+  opacity: 0.85;
+  max-width: 400px;
+}
+.role-steps {
+  list-style: none;
+  padding: 0;
+  margin: 30px 0 0;
+}
+.role-steps li {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 0;
+  font-size: 14px;
+  border-top: 1px solid #28453725;
+}
+.role-steps li > span {
+  font-size: 11px;
+  opacity: 0.65;
+}
+.role-story-footer {
+  font-size: 12px;
+  opacity: 0.65;
+}
+.role-entry {
+  padding: 40px clamp(24px, 4.5vw, 72px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 28px;
+}
+.role-entry > a {
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  align-self: flex-start;
+  text-decoration: none;
+}
+.login-panel {
+  width: 100%;
+  max-width: 430px;
+  margin: auto 0;
+  padding: 36px 0;
+}
+.login-emblem {
+  display: inline-flex;
+  padding: 16px;
+  background: #e0e9d9;
+  border-radius: 50%;
+  color: var(--portal-accent);
+  margin-bottom: 28px;
+}
+.login-panel h2 {
+  font-size: 29px;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+  margin: 0 0 14px;
+  font-weight: 600;
+}
+.login-panel > p {
+  color: #5c6563;
+  font-size: 15px;
+  line-height: 1.7;
+  margin: 0 0 28px;
+}
+.login-button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+  border-radius: 8px;
+  min-height: 52px;
+  font-size: 14px;
+  font-weight: 650;
+  background: var(--portal-accent);
+  color: #fff;
+  text-decoration: none;
+}
+.login-button:hover {
+  filter: brightness(1.15);
+}
+.login-panel .login-caption {
+  font-size: 12px;
+  line-height: 1.6;
+  margin: 18px 0 0;
+}
+.login-identity {
+  border: 1px solid #cad1ca;
+  border-radius: 8px;
+  padding: 14px;
+  font-size: 13px;
+  margin: 0 0 20px;
+  overflow-wrap: anywhere;
+}
+.login-identity strong {
+  display: block;
+  margin-bottom: 6px;
+}
+.login-switch {
+  display: inline-block;
+  font-size: 13px;
+  margin-top: 22px;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.login-demo {
+  background: #fff8dd;
+  color: #5b4713;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 22px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.role-login-qa {
+  --portal-accent: #274d8c;
+  background: #eef2f8;
+  grid-template-columns: 1fr 1.08fr;
+}
+.role-login-qa .role-story {
+  order: 2;
+  background: #233b63;
+  color: #f5f8ff;
+}
+.role-login-qa .role-steps li {
+  border-color: #ffffff30;
+}
+.role-login-qa .role-entry {
+  order: 1;
+}
+.role-login-qa .login-panel {
+  background: #fff;
+  padding: 32px;
+  border: 1px solid #d6dfed;
+  border-top: 4px solid #274d8c;
+  box-shadow: 0 12px 32px #233b6308;
+}
+.role-login-qa .login-emblem {
+  border-radius: 4px;
+  background: #e2e9f6;
+}
+.role-login-qa .login-button {
+  border-radius: 3px;
+}
+.role-login-admin {
+  --portal-accent: #5d477f;
+  background: #252332;
+  color: #f6f1e9;
+  grid-template-columns: 1fr 1fr;
+}
+.role-login-admin .role-story {
+  background: transparent;
+}
+.role-login-admin .role-entry {
+  border-left: 1px solid #ffffff20;
+}
+.role-login-admin .role-steps li {
+  border-color: #ffffff20;
+}
+.role-login-admin .login-panel {
+  background: #faf8f4;
+  color: #252332;
+  padding: 38px;
+  border-radius: 18px;
+}
+.role-login-admin .login-emblem {
+  background: #ede6f5;
+  border-radius: 12px;
+}
+.login-home a:focus-visible,
+.role-login a:focus-visible {
+  outline: 3px solid #bb7b25;
+  outline-offset: 5px;
+}
+@media (max-width: 900px) {
+  .portal-grid {
+    gap: 12px;
+  }
+  .portal-card {
+    padding: 22px;
+  }
+  .role-entry {
+    padding: 28px;
+  }
+  .role-login-admin .login-panel,
+  .role-login-qa .login-panel {
+    padding: 26px;
+  }
+}
+@media (max-width: 680px) {
+  .login-home {
+    padding: 28px 22px;
+  }
+  .login-intro {
+    margin-top: 45px;
+  }
+  .portal-grid {
+    grid-template-columns: 1fr;
+  }
+  .portal-card {
+    min-height: 290px;
+    gap: 24px;
+  }
+  .role-login {
+    display: flex;
+    flex-direction: column;
+  }
+  .role-story {
+    padding: 28px;
+    gap: 36px;
+  }
+  .role-story h1 {
+    font-size: 40px;
+  }
+  .role-story-body > p:not(.login-kicker),
+  .role-steps,
+  .role-story-footer {
+    display: none;
+  }
+  .role-story h1 {
+    margin-bottom: 0;
+  }
+  .role-entry {
+    min-height: 420px;
+    padding: 28px;
+  }
+  .login-panel {
+    max-width: none;
+    padding: 12px 0;
+  }
+  .role-login-qa .role-story,
+  .role-login-qa .role-entry {
+    order: initial;
+  }
+  .role-login-admin .role-entry {
+    border: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .portal-card {
+    transition: none;
+  }
+  .portal-card:hover {
+    transform: none;
+  }
+}

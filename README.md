@@ -15,7 +15,7 @@ npm run dev -- --host 127.0.0.1
 
 On Windows, use `Copy-Item .dev.vars.example .dev.vars` instead of `cp`. Open the localhost address printed by the server. Local D1 records and R2 audio persist under `.wrangler/`, which is excluded from Git. Restart the server after changing `.dev.vars`.
 
-The example enables a **local demo role selector**. It is active only in a development build, on localhost, with `LOCAL_DEMO=true`. Production builds ignore the demo selector and require an authenticated, authorized account.
+The example enables **local demo login portals**. They are active only in a development build, on localhost, with `LOCAL_DEMO=true`. Production builds ignore demo access and require an authenticated, authorized account. Open `/login` and choose a portal. Use **Change portal** to switch roles in the local demo.
 
 ## Try the complete workflow
 
@@ -41,6 +41,10 @@ The worker processes only Quick-Review-approved recordings. Jobs persist in the 
 Provider calls are separate from user upload/review requests. A request timeout is 120 seconds. A successful external call whose result is lost during a crash may be billed again when the lease is reclaimed; database completion rejects stale leases, but the external service cannot be made exactly-once by this pilot.
 
 ## Authentication and team access
+
+Separate login pages are available at `/login/contributor`, `/login/qa`, and `/login/admin` (Administrator / Team Leader). They use distinct layouts and open the recording studio, Quick Review, and project management respectively. `/workspace` checks the signed-in account's assigned role on the server; selecting another portal does not grant access. Unassigned accounts see an invitation message, and accounts with a different role are guided to their assigned portal. Sign-out is available in the workspace.
+
+The hosted platform may show its access gate before these custom pages. Each portal continues through Sign in with ChatGPT using a same-origin return path.
 
 Hosted operation uses the Sites authenticated identity, not a custom password system. Set `ADMIN_EMAIL` to the owner's exact sign-in email. That account can grant contributor, QA, or administrator access in **Manage project**. Team members also need access through the hosting platform's access policy. Audio and delivery endpoints check server-side authorization.
 
@@ -68,6 +72,8 @@ npm run build
 ```
 
 For a fresh, running local demo database, `node tests/api-smoke.mjs` exercises upload, concurrent claims, authorization, review gates, three-round finalization, export and audio retrieval. It intentionally refuses to run if recordings already exist and leaves one clearly labelled silent fixture in the local database. Do not run it against production.
+
+With the local demo server running, `node tests/login-smoke.mjs` checks all three login routes and workspace redirects without changing workspace records. Unit tests cover the complete role-to-portal access matrix.
 
 GitHub Actions runs type checking, workflow tests and the production build on pushes and pull requests. Browser recording permissions, physical microphone capture and a live transcription provider must be checked on the intended devices before inviting a team.
 
