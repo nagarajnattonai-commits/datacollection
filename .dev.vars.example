@@ -1,0 +1,8 @@
+# Development only. Production builds always ignore this flag.
+LOCAL_DEMO=true
+# Exact email trusted by the Sites authenticated identity:
+ADMIN_EMAIL=
+# Optional automatic transcription configuration:
+OPENAI_API_KEY=
+STT_MODEL=gpt-4o-mini-transcribe
+WORKER_SECRET=
