@@ -42,13 +42,20 @@ Provider calls are separate from user upload/review requests. A request timeout 
 
 ## Authentication and team access
 
-Separate login pages are available at `/login/contributor`, `/login/qa`, and `/login/admin` (Administrator / Team Leader). They use distinct layouts and open the recording studio, Quick Review, and project management respectively. `/workspace` checks the signed-in account's assigned role on the server; selecting another portal does not grant access. Unassigned accounts see an invitation message, and accounts with a different role are guided to their assigned portal. Sign-out is available in the workspace.
+Separate login pages are available at `/login/contributor`, `/login/qa`, and `/login/admin` (Administrator / Team Leader). Each page has its own visual design and supports validated email/password login, password visibility controls, Google login, and account signup. Signup collects full name, email, password confirmation, and requested portal. Requesting QA or Administrator access never grants that role automatically.
 
-The hosted platform may show its access gate before these custom pages. Each portal continues through Sign in with ChatGPT using a same-origin return path.
+Authentication uses Supabase Auth with server-managed PKCE cookies. Configure `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY`, enable the Email and Google providers in Supabase Auth, and add these redirect URLs to the project's allow list:
 
-Hosted operation uses the Sites authenticated identity, not a custom password system. Set `ADMIN_EMAIL` to the owner's exact sign-in email. That account can grant contributor, QA, or administrator access in **Manage project**. Team members also need access through the hosting platform's access policy. Audio and delivery endpoints check server-side authorization.
+```text
+http://localhost:3000/auth/callback
+https://your-hostname.example/auth/callback
+```
 
-**Trust boundary:** identity headers are trusted only behind the Sites dispatcher, which must replace caller-supplied identity headers. Do not expose this Worker through another ingress that accepts arbitrary `oai-authenticated-*` headers. The local demo is not an Internet-facing authentication system.
+For Google, copy Supabase's provider callback URL into the Google Cloud OAuth client, then add the Google client ID and secret in the Supabase provider settings. The Google secret belongs in Supabase, not this repository.
+
+`/workspace` checks the authenticated account's assigned role on the server; selecting or requesting another portal does not grant access. Set `ADMIN_EMAIL` to the owner's exact email. That administrator can add contributor, QA, or administrator emails in **Manage project**. Unassigned accounts see an invitation message, and accounts with a different role are guided to their assigned portal. Audio and delivery endpoints repeat the server-side authorization check.
+
+If Supabase Auth is not configured, a trusted Sites identity remains available for existing hosted environments. The local demo is only for localhost development and is not an Internet-facing authentication system.
 
 ## Implementation and deliberate MVP limits
 
@@ -70,11 +77,12 @@ Apply `supabase/migrations/202609050001_fieldnote_workspace.sql` to the selected
 ```text
 DATABASE_PROVIDER=supabase
 SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 SUPABASE_SECRET_KEY=sb_secret_...
 SUPABASE_WORKSPACE_ID=main
 ```
 
-Use a dedicated modern Supabase secret key. Do not place it in client code, a `NEXT_PUBLIC_` variable, Git, screenshots or chat. The migration enables Row Level Security, removes public/authenticated grants, grants only the server role, and exposes secured operational views for projects, team members, tasks, audio assets, reviews, rounds, transcription jobs, audit records and delivery data. See [supabase/README.md](supabase/README.md).
+Use the project's publishable key for authentication and a dedicated modern secret key for server-only database access. Never place the secret key in client code, a `NEXT_PUBLIC_` variable, Git, screenshots or chat. The migration enables Row Level Security, removes public/authenticated grants, grants only the server role, and exposes secured operational views for projects, team members, tasks, audio assets, reviews, rounds, transcription jobs, audit records and delivery data. See [supabase/README.md](supabase/README.md).
 
 ## Validation
 

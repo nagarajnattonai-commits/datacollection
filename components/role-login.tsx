@@ -7,7 +7,8 @@ import {
   Mic,
   ShieldCheck,
 } from 'lucide-react';
-import { chatGPTSignInPath, chatGPTSignOutPath } from '@/app/chatgpt-auth';
+import { accountSignOutPath } from '@/app/chatgpt-auth';
+import AuthForm from '@/components/auth-form';
 import { loginContext } from '@/lib/login-context';
 import { portals } from '@/lib/portals';
 import { audioCriteria } from '@/lib/audio-criteria';
@@ -73,31 +74,28 @@ export default async function RoleLogin({ role }: { role: Role }) {
                 ? 'Your next review starts with a fresh listen. Sign in to your review desk.'
                 : 'Sign in to manage your team and keep your collection moving.'}
           </p>
-          {demo ? (
+          {!user ? (
             <>
-              <div className="login-demo">
-                <strong>Local demo</strong>
-                <br />
-                Try this role using sample access on this computer.
-              </div>
-              <a className="login-button" href={destination}>
-                Try{' '}
-                {role === 'admin' ? 'administrator' : portal.name.toLowerCase()}{' '}
-                demo <ArrowRight size={18} aria-hidden="true" />
-              </a>
-            </>
-          ) : !user ? (
-            <>
-              <a
-                className="login-button"
-                href={chatGPTSignInPath(destination)}
-                target="_top"
-              >
-                Sign in with ChatGPT <ArrowRight size={18} aria-hidden="true" />
-              </a>
-              <p className="login-caption">
-                Continue with the email your administrator added to the team.
-              </p>
+              <AuthForm role={role} />
+              {demo && (
+                <div className="demo-access">
+                  <div className="auth-divider" aria-hidden="true">
+                    <span>local testing</span>
+                  </div>
+                  <div className="login-demo">
+                    <strong>Local demo</strong>
+                    <br />
+                    Try this role using sample access on this computer.
+                  </div>
+                  <a className="login-button" href={destination}>
+                    Try{' '}
+                    {role === 'admin'
+                      ? 'administrator'
+                      : portal.name.toLowerCase()}{' '}
+                    demo <ArrowRight size={18} aria-hidden="true" />
+                  </a>
+                </div>
+              )}
             </>
           ) : (
             <>
@@ -106,18 +104,16 @@ export default async function RoleLogin({ role }: { role: Role }) {
                 {user.email}
               </div>
               {!assigned ? (
-                <div role="status">
-                  <p>
-                    Your account has not been added to this workspace. Ask the
-                    administrator to invite this email.
-                  </p>
-                </div>
+                <output className="login-status">
+                  Your account has not been added to this workspace. Ask the
+                  administrator to invite this email.
+                </output>
               ) : mismatch ? (
                 <>
-                  <p role="status">
+                  <output className="login-status">
                     Your account has {portals[assigned].name} access. Continue
                     through your assigned portal.
-                  </p>
+                  </output>
                   <a className="login-button" href={`/login/${assigned}`}>
                     Go to your portal{' '}
                     <ArrowRight size={18} aria-hidden="true" />
@@ -130,7 +126,7 @@ export default async function RoleLogin({ role }: { role: Role }) {
               )}
               <a
                 className="login-switch"
-                href={chatGPTSignOutPath(`/login/${role}`)}
+                href={accountSignOutPath(`/login/${role}`)}
                 target="_top"
               >
                 Sign out or switch account

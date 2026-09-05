@@ -1,5 +1,9 @@
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
+import {
+  createSupabaseAuthClient,
+  supabaseAuthConfigured,
+} from '@/lib/supabase-auth';
 
 export type ChatGPTUser = {
   userId: string;
@@ -19,6 +23,21 @@ const SIGN_OUT_PATH = '/signout-with-chatgpt';
 const CALLBACK_PATH = '/callback';
 
 export async function getChatGPTUser(): Promise<ChatGPTUser | null> {
+  const supabase = await createSupabaseAuthClient();
+  if (supabase) {
+    const { data, error } = await supabase.auth.getUser();
+    if (error || !data.user?.email) return null;
+    const fullName =
+      typeof data.user.user_metadata?.full_name === 'string'
+        ? data.user.user_metadata.full_name
+        : null;
+    return {
+      userId: data.user.id,
+      displayName: fullName ?? data.user.email,
+      email: data.user.email,
+      fullName,
+    };
+  }
   const requestHeaders = await headers();
   const userId = requestHeaders.get(USER_ID_HEADER);
   const email = requestHeaders.get(USER_EMAIL_HEADER);
@@ -37,6 +56,13 @@ export async function getChatGPTUser(): Promise<ChatGPTUser | null> {
     email,
     fullName,
   };
+}
+
+export function accountSignOutPath(returnTo = '/'): string {
+  const safeReturnTo = safeRelativeReturnPath(returnTo);
+  return supabaseAuthConfigured()
+    ? `/api/auth/logout?return_to=${encodeURIComponent(safeReturnTo)}`
+    : chatGPTSignOutPath(safeReturnTo);
 }
 
 export async function requireChatGPTUser(

@@ -9,6 +9,7 @@ declare namespace Cloudflare {
     WORKER_SECRET?: string;
     DATABASE_PROVIDER?: string;
     SUPABASE_URL?: string;
+    SUPABASE_PUBLISHABLE_KEY?: string;
     SUPABASE_SECRET_KEY?: string;
     SUPABASE_WORKSPACE_ID?: string;
   }

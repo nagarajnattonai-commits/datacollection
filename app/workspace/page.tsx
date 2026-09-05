@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { chatGPTSignOutPath } from '@/app/chatgpt-auth';
+import { accountSignOutPath } from '@/app/chatgpt-auth';
 import { loginContext } from '@/lib/login-context';
 import { parseRole, workspaceAccess } from '@/lib/portals';
 import type { Role } from '@/lib/workflow';
@@ -13,7 +13,7 @@ async function ProtectedWorkspace({ portal }: { portal: Role | null }) {
   return (
     <Workspace
       initialRole={access.role}
-      signOutUrl={demo ? '/login' : chatGPTSignOutPath('/login')}
+      signOutUrl={demo ? '/login' : accountSignOutPath('/login')}
     />
   );
 }
