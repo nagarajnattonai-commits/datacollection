@@ -13,7 +13,7 @@ npm run db:local
 npm run dev -- --host 127.0.0.1
 ```
 
-On Windows, use `Copy-Item .dev.vars.example .dev.vars` instead of `cp`. Open the localhost address printed by the server. Local D1 records and R2 audio persist under `.wrangler/`, which is excluded from Git. Restart the server after changing `.dev.vars`.
+On Windows, use `Copy-Item .dev.vars.example .dev.vars` instead of `cp`. Open the localhost address printed by the server. Local D1 records and R2 audio persist under `.wrangler/`, which is excluded from Git. Restart the server after changing `.dev.vars`. Local D1 remains the offline test database; configure Supabase below to use PostgreSQL.
 
 The example enables **local demo login portals**. They are active only in a development build, on localhost, with `LOCAL_DEMO=true`. Production builds ignore demo access and require an authenticated, authorized account. Open `/login` and choose a portal. Use **Change portal** to switch roles in the local demo.
 
@@ -53,15 +53,28 @@ Hosted operation uses the Sites authenticated identity, not a custom password sy
 ## Implementation and deliberate MVP limits
 
 - TypeScript, React, the Next.js-compatible Vinext runtime, Tailwind and shadcn UI.
-- Cloudflare D1 for metadata, R2 for private audio, a separate polling transcription worker.
-- The bounded workspace is saved as a revisioned aggregate. A compare-and-swap update atomically commits each entire workflow transition; conflicting requests re-read and re-check eligibility. This prevents duplicate claims, duplicate round submissions, and lost updates.
+- Supabase PostgreSQL for hosted metadata, R2 for private audio, and a separate polling transcription worker. Local development falls back to D1 when Supabase is not configured.
+- The workspace is saved as a revisioned PostgreSQL JSONB document with secured relational operational views. A PostgreSQL compare-and-swap function atomically commits each entire workflow transition; conflicting requests re-read and re-check eligibility. This prevents duplicate claims, duplicate round submissions, and lost updates.
 - Original transcripts, per-round edits, Quick Review feedback, checksums and audit events are retained. A round's eligible task set is fixed when opened.
 - One project/workspace per deployment; a maximum of 500 recordings. This is a **pilot**, not the 1,000-user deployment described in the recommendations. It has not been load-tested for that scale.
 - Uploads pass through the application and use container-signature checks; duration, sample rate, channel count and silence detection are not independently measured. Header validation is not a complete media decoder or malware scan. Delivery is a JSON manifest plus separate protected audio downloads, not a ZIP package.
 - A team activity log and queue counts are included. Daily targets, Slack alerts, payments, marketplace features and advanced analytics are deferred.
-- Before a larger rollout: normalized PostgreSQL entities and indexes, stronger upload processing, presigned uploads/downloads, queue infrastructure such as BullMQ/Redis, rate limiting, backup/restore procedures, observability, load testing and a production dependency-security review.
+- Before a larger rollout: move high-volume writes from the JSONB aggregate to independently writable normalized tables, add presigned uploads/downloads, move queues and cross-instance rate limits to BullMQ/Redis, and complete backup/restore, observability, load and dependency-security reviews.
 
-The supplied stack document recommends Next.js, NestJS, PostgreSQL/Prisma, Redis/BullMQ and S3 for the production architecture. This pilot keeps its workflow semantics while using the available Sites runtime and fewer moving parts. See [docs/architecture.md](docs/architecture.md) for the mapping.
+The supplied stack document recommends Next.js, NestJS, PostgreSQL/Prisma, Redis/BullMQ and S3 for the production architecture. This implementation uses the equivalent Sites-compatible modular backend, Supabase PostgreSQL and private R2 storage while keeping the documented workflow semantics. See [docs/architecture.md](docs/architecture.md) for the mapping.
+
+## Supabase PostgreSQL
+
+Apply `supabase/migrations/202609050001_fieldnote_workspace.sql` to the selected Supabase project with the Supabase CLI migration workflow. Then configure these values only in the server's private environment:
+
+```text
+DATABASE_PROVIDER=supabase
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SECRET_KEY=sb_secret_...
+SUPABASE_WORKSPACE_ID=main
+```
+
+Use a dedicated modern Supabase secret key. Do not place it in client code, a `NEXT_PUBLIC_` variable, Git, screenshots or chat. The migration enables Row Level Security, removes public/authenticated grants, grants only the server role, and exposes secured operational views for projects, team members, tasks, audio assets, reviews, rounds, transcription jobs, audit records and delivery data. See [supabase/README.md](supabase/README.md).
 
 ## Validation
 
@@ -81,7 +94,7 @@ GitHub Actions runs type checking, workflow tests and the production build on pu
 
 ## Hosting
 
-`.openai/hosting.json` declares D1 and R2 bindings for Sites. Build with `npm run build`, apply the generated `drizzle/` migrations through the hosting flow, configure the private environment and publish a saved version. Keep the application behind trusted Sites authentication. Never upload `.dev.vars`, `.env.worker`, `.wrangler/`, recordings or API keys to GitHub.
+`.openai/hosting.json` declares the local fallback D1 and private R2 bindings for Sites. Apply the Supabase migration, configure the private Supabase server variables, build, and publish a saved version. Keep the application behind trusted Sites authentication. Never upload `.dev.vars`, `.env.worker`, `.wrangler/`, recordings or API keys to GitHub.
 
 `Dockerfile` and `compose.yaml` provide an optional **local demo** container with a persisted `.wrangler` volume. Run `docker compose up --build` and open `http://localhost:3000`. This runs a development server, not a production deployment.
 

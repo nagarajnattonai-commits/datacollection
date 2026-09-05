@@ -1,9 +1,24 @@
 import { env } from 'cloudflare:workers';
 import { initialState, WorkflowError, type State } from './workflow';
+import {
+  parseSupabaseStoreConfig,
+  SupabaseWorkspaceStore,
+} from './supabase-store';
+
+function supabaseStore() {
+  const config = parseSupabaseStoreConfig(env);
+  return config ? new SupabaseWorkspaceStore(config) : null;
+}
+
+export function databaseProvider() {
+  return supabaseStore() ? 'supabase-postgresql' : 'local-d1';
+}
 export function db() {
   return env.DB;
 }
 export async function readState(): Promise<{ state: State; revision: number }> {
+  const postgres = supabaseStore();
+  if (postgres) return postgres.read();
   await db()
     .prepare(
       'INSERT OR IGNORE INTO workspace (id, revision, body) VALUES (?, 0, ?)',
@@ -23,13 +38,18 @@ export async function mutate<T>(fn: (state: State) => T): Promise<T> {
   for (let attempt = 0; attempt < 12; attempt++) {
     const { state, revision } = await readState();
     const result = fn(state);
-    const saved = await db()
-      .prepare(
-        'UPDATE workspace SET body = ?, revision = revision + 1 WHERE id = ? AND revision = ?',
-      )
-      .bind(JSON.stringify(state), 'main', revision)
-      .run();
-    if (saved.meta.changes === 1) return result;
+    const postgres = supabaseStore();
+    if (postgres) {
+      if (await postgres.compareAndSwap(revision, state)) return result;
+    } else {
+      const saved = await db()
+        .prepare(
+          'UPDATE workspace SET body = ?, revision = revision + 1 WHERE id = ? AND revision = ?',
+        )
+        .bind(JSON.stringify(state), 'main', revision)
+        .run();
+      if (saved.meta.changes === 1) return result;
+    }
   }
   throw new WorkflowError('The workspace is busy. Please try again.');
 }

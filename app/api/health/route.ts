@@ -1,6 +1,6 @@
 import { env } from 'cloudflare:workers';
 import { apiJson, logRequest, requestId } from '@/lib/api';
-import { readState } from '@/lib/store';
+import { databaseProvider, readState } from '@/lib/store';
 
 export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
@@ -12,6 +12,7 @@ export async function GET(request: Request) {
       {
         status: 'ok',
         service: 'fieldnote-backend',
+        databaseProvider: databaseProvider(),
         checks: { database: 'ok', objectStorage: 'ok' },
         timestamp: new Date().toISOString(),
       },

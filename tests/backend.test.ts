@@ -4,6 +4,10 @@ import { audioCriteria, validateAudioCriteria } from '../lib/audio-criteria.ts';
 import { enforceRateLimit, requestId } from '../lib/api.ts';
 import { workspaceMetrics } from '../lib/metrics.ts';
 import { initialState, type Task } from '../lib/workflow.ts';
+import {
+  parseSupabaseStoreConfig,
+  SupabaseWorkspaceStore,
+} from '../lib/supabase-store.ts';
 
 test('audio submissions require every current quality criterion', () => {
   const all = audioCriteria.map((criterion) => criterion.id);
@@ -81,4 +85,72 @@ test('monitoring reports queue, claims, team and delivery counts', () => {
   assert.equal(metrics.tasks.transcriptionBacklog, 1);
   assert.equal(metrics.tasks.activeClaims, 1);
   assert.equal(metrics.tasks.readyToDeliver, 0);
+});
+
+test('Supabase configuration requires a secure complete server connection', () => {
+  assert.equal(parseSupabaseStoreConfig({}), null);
+  assert.throws(() =>
+    parseSupabaseStoreConfig({ DATABASE_PROVIDER: 'supabase' }),
+  );
+  assert.throws(() =>
+    parseSupabaseStoreConfig({
+      SUPABASE_URL: 'https://project.supabase.co',
+    }),
+  );
+  assert.throws(() =>
+    parseSupabaseStoreConfig({
+      SUPABASE_URL: 'http://project.supabase.co',
+      SUPABASE_SECRET_KEY: 'sb_secret_test',
+    }),
+  );
+  assert.deepEqual(
+    parseSupabaseStoreConfig({
+      DATABASE_PROVIDER: 'supabase',
+      SUPABASE_URL: 'https://project.supabase.co/',
+      SUPABASE_SECRET_KEY: 'sb_secret_test',
+      SUPABASE_WORKSPACE_ID: 'fieldnote_main',
+    }),
+    {
+      url: 'https://project.supabase.co',
+      secretKey: 'sb_secret_test',
+      workspaceId: 'fieldnote_main',
+    },
+  );
+});
+
+test('Supabase store initializes, reads and atomically updates a workspace', async () => {
+  const state = initialState();
+  const calls: { url: string; init: RequestInit }[] = [];
+  const responses = [
+    Response.json([]),
+    new Response(null, { status: 201 }),
+    Response.json([{ revision: 0, state }]),
+    Response.json(true),
+  ];
+  const fetcher = (async (input: string | URL | Request, init = {}) => {
+    calls.push({ url: String(input), init });
+    const response = responses.shift();
+    if (!response) throw new Error('Unexpected Supabase request');
+    return response;
+  }) as typeof fetch;
+  const store = new SupabaseWorkspaceStore(
+    {
+      url: 'https://project.supabase.co',
+      secretKey: 'sb_secret_test',
+      workspaceId: 'main',
+    },
+    fetcher,
+  );
+  assert.deepEqual(await store.read(), { revision: 0, state });
+  assert.equal(await store.compareAndSwap(0, state), true);
+  assert.equal(calls.length, 4);
+  assert.match(calls[0].url, /\/rest\/v1\/fieldnote_workspaces\?/);
+  assert.match(
+    calls[3].url,
+    /\/rest\/v1\/rpc\/fieldnote_compare_and_swap_workspace$/,
+  );
+  const headers = new Headers(calls[3].init.headers);
+  assert.equal(headers.get('apikey'), 'sb_secret_test');
+  assert.equal(headers.has('authorization'), false);
+  assert.match(String(calls[3].init.body), /"p_expected_revision":0/);
 });

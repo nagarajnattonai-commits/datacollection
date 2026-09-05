@@ -6,3 +6,8 @@ ADMIN_EMAIL=
 OPENAI_API_KEY=
 STT_MODEL=gpt-4o-mini-transcribe
 WORKER_SECRET=
+# Optional Supabase PostgreSQL connection. Local D1 is used when these are blank.
+DATABASE_PROVIDER=
+SUPABASE_URL=
+SUPABASE_SECRET_KEY=
+SUPABASE_WORKSPACE_ID=main
