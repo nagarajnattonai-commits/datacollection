@@ -157,6 +157,37 @@
   font-size: 12px;
   opacity: 0.65;
 }
+.login-quality {
+  margin-top: 28px;
+  padding: 22px;
+  border: 1px solid #28453725;
+  border-radius: 12px;
+  background: #f7faf480;
+}
+.login-quality > strong {
+  display: block;
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+.login-quality ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.login-quality li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.35;
+}
+.login-quality svg {
+  color: #387650;
+  flex: 0 0 auto;
+}
 .role-entry {
   padding: 40px clamp(24px, 4.5vw, 72px);
   display: flex;
@@ -353,6 +384,13 @@
   .role-steps,
   .role-story-footer {
     display: none;
+  }
+  .login-quality {
+    margin-top: 22px;
+  }
+  .login-quality ul {
+    grid-template-columns: 1fr;
+    gap: 8px;
   }
   .role-story h1 {
     margin-bottom: 0;

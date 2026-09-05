@@ -2,7 +2,12 @@
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
 
-.workspace-account-link { font-size: 13px; text-decoration: underline; text-underline-offset: 4px; padding: 10px 0; }
+.workspace-account-link {
+  font-size: 13px;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  padding: 10px 0;
+}
 
 @custom-variant dark (&:is(.dark *));
 
@@ -494,6 +499,79 @@ label {
 }
 .record-preview {
   margin-top: 24px;
+}
+.quality-tips {
+  list-style: none;
+  padding: 0;
+  margin: 24px 0 0;
+  display: grid;
+  gap: 14px;
+}
+.quality-tips li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #536157;
+}
+.quality-tips svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: #37744c;
+}
+.quality-tips strong {
+  display: block;
+  color: #283b30;
+  font-size: 13px;
+  margin-bottom: 2px;
+}
+.audio-checklist {
+  border: 1px solid #ced9ca;
+  border-radius: 12px;
+  padding: 20px;
+  margin: 22px 0;
+  background: #f8faf5;
+}
+.audio-checklist legend {
+  padding: 0 8px;
+  font-size: 16px;
+  font-weight: 650;
+  color: #26382e;
+}
+.audio-checklist > p {
+  font-size: 13px;
+  color: #647168;
+  margin: 0 0 15px;
+}
+.audio-checklist label {
+  display: grid;
+  grid-template-columns: 20px 1fr;
+  gap: 11px;
+  align-items: start;
+  padding: 12px 0;
+  border-top: 1px solid #dde5d9;
+  cursor: pointer;
+}
+.audio-checklist input {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  accent-color: #34744e;
+}
+.audio-checklist strong,
+.audio-checklist small {
+  display: block;
+}
+.audio-checklist strong {
+  font-size: 14px;
+  color: #24392d;
+}
+.audio-checklist small {
+  color: #647168;
+  font-size: 12px;
+  line-height: 1.45;
+  margin-top: 2px;
 }
 .review-list {
   display: grid;

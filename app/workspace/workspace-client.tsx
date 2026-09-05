@@ -42,6 +42,7 @@ import {
   EmptyDescription,
 } from '@/components/ui/empty';
 import type { State, Task, Actor, Role } from '@/lib/workflow';
+import { audioCriteria } from '@/lib/audio-criteria';
 
 type Snapshot = {
   state: State;
@@ -152,6 +153,12 @@ export default function Workspace({
     [preview, setPreview] = useState(''),
     [recording, setRecording] = useState(false),
     [seconds, setSeconds] = useState(0);
+  const [qualityChecks, setQualityChecks] = useState<Record<string, boolean>>(
+    {},
+  );
+  const qualityConfirmed = audioCriteria.every(
+    (item) => qualityChecks[item.id],
+  );
   const recorder = useRef<MediaRecorder | null>(null),
     stream = useRef<MediaStream | null>(null);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
@@ -233,6 +240,7 @@ export default function Workspace({
   }
   async function startRecording() {
     setError('');
+    setQualityChecks({});
     try {
       if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder)
         throw new Error(
@@ -287,6 +295,10 @@ export default function Workspace({
   }
   async function upload() {
     if (!file) return;
+    if (!qualityConfirmed) {
+      setError('Confirm every audio quality check before submitting.');
+      return;
+    }
     setBusy(true);
     setError('');
     try {
@@ -294,6 +306,7 @@ export default function Workspace({
       form.set('audio', file);
       await api('/api/workspace', { method: 'POST', body: form });
       setFile(null);
+      setQualityChecks({});
       await refresh();
       setNotice('Recording submitted for Quick Review.');
     } catch (e) {
@@ -754,7 +767,10 @@ export default function Workspace({
                               const chosen = e.target.files?.[0];
                               if (chosen && chosen.size > 20 * 1024 * 1024)
                                 setError('Choose an audio file up to 20 MB.');
-                              else if (chosen) setFile(chosen);
+                              else if (chosen) {
+                                setFile(chosen);
+                                setQualityChecks({});
+                              }
                               e.target.value = '';
                             }}
                           />
@@ -768,14 +784,44 @@ export default function Workspace({
                   {preview && !recording && (
                     <div className="record-preview">
                       <Player src={preview} />
+                      <fieldset className="audio-checklist">
+                        <legend>Audio quality checklist</legend>
+                        <p>
+                          Listen to your recording, then confirm every item.
+                        </p>
+                        {audioCriteria.map((item) => (
+                          <label key={item.id}>
+                            <input
+                              type="checkbox"
+                              checked={Boolean(qualityChecks[item.id])}
+                              onChange={(event) =>
+                                setQualityChecks((current) => ({
+                                  ...current,
+                                  [item.id]: event.target.checked,
+                                }))
+                              }
+                            />
+                            <span>
+                              <strong>{item.title}</strong>
+                              <small>{item.description}</small>
+                            </span>
+                          </label>
+                        ))}
+                      </fieldset>
                       <div className="actions">
-                        <Button disabled={busy} onClick={upload}>
+                        <Button
+                          disabled={busy || !qualityConfirmed}
+                          onClick={upload}
+                        >
                           {busy ? 'Submitting…' : 'Submit recording'}
                           <ArrowRight />
                         </Button>
                         <Button
                           variant="ghost"
-                          onClick={() => setFile(null)}
+                          onClick={() => {
+                            setFile(null);
+                            setQualityChecks({});
+                          }}
                           disabled={busy}
                         >
                           Discard
@@ -792,6 +838,20 @@ export default function Workspace({
                     <span>Project language</span>
                   </div>
                   <p className="pre-wrap">{state!.config.requirements}</p>
+                  <ul
+                    className="quality-tips"
+                    aria-label="Audio quality criteria"
+                  >
+                    {audioCriteria.map((item) => (
+                      <li key={item.id}>
+                        <Check size={17} aria-hidden="true" />
+                        <span>
+                          <strong>{item.title}</strong>
+                          {item.description}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
                   <div className="workflow-note">
                     <Check size={22} />
                     <p>

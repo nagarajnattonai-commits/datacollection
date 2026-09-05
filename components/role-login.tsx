@@ -2,6 +2,7 @@ import {
   AudioLines,
   ArrowLeft,
   ArrowRight,
+  CircleCheck,
   Headphones,
   Mic,
   ShieldCheck,
@@ -9,6 +10,7 @@ import {
 import { chatGPTSignInPath, chatGPTSignOutPath } from '@/app/chatgpt-auth';
 import { loginContext } from '@/lib/login-context';
 import { portals } from '@/lib/portals';
+import { audioCriteria } from '@/lib/audio-criteria';
 import type { Role } from '@/lib/workflow';
 import '@/app/login/login.css';
 
@@ -37,6 +39,19 @@ export default async function RoleLogin({ role }: { role: Role }) {
               </li>
             ))}
           </ol>
+          {role === 'contributor' && (
+            <div className="login-quality">
+              <strong>Before you record</strong>
+              <ul>
+                {audioCriteria.slice(0, 4).map((item) => (
+                  <li key={item.id}>
+                    <CircleCheck size={17} aria-hidden="true" />
+                    {item.title}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
         <p className="role-story-footer">
           FIELDNOTE / AUDIO COLLECTION WORKSPACE
