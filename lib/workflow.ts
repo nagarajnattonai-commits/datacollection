@@ -26,6 +26,11 @@ export type Task = {
   mime: string;
   bytes: number;
   checksum: string;
+  quality?: {
+    criteriaVersion: number;
+    confirmed: string[];
+    confirmedAt: number;
+  };
   language: string;
   locale: string;
   status: Status;
@@ -100,6 +105,8 @@ export function audit(
   taskId?: string,
 ) {
   state.audit.push({ actor: actor.email, action, at: now, taskId });
+  if (state.audit.length > 5000)
+    state.audit.splice(0, state.audit.length - 5000);
 }
 export function currentRound(state: State) {
   return state.rounds.find((r) => r.status === 'open');

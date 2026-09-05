@@ -36,3 +36,24 @@ export const audioCriteria = [
       'Play the full recording and confirm that every word is easy to hear.',
   },
 ] as const;
+
+export type AudioCriterionId = (typeof audioCriteria)[number]['id'];
+export const audioCriteriaVersion = 1;
+
+export function validateAudioCriteria(value: unknown): AudioCriterionId[] {
+  let candidate = value;
+  if (typeof value === 'string') {
+    try {
+      candidate = JSON.parse(value);
+    } catch {
+      candidate = null;
+    }
+  }
+  if (!Array.isArray(candidate)) return [];
+  const confirmed = new Set(
+    candidate.filter((item): item is string => typeof item === 'string'),
+  );
+  return audioCriteria.every((item) => confirmed.has(item.id))
+    ? audioCriteria.map((item) => item.id)
+    : [];
+}

@@ -18,6 +18,32 @@ The source documents are `audio_data_collection_architecture.pdf`, `audio_data_c
 | Monitoring                   | Status counts, round progress, team membership and audit activity           |
 | Delivery                     | JSON manifest and protected individual audio downloads                      |
 
+## Backend readiness additions
+
+The test-ready backend remains a modular monolith, matching the supplied recommendation to avoid early microservices. The web application, workflow engine and API layer share one deployable service; transcription runs as a separate worker. The implementation uses the Sites runtime equivalents of the recommended infrastructure so the website can run as one testable deployment:
+
+| Document recommendation       | Test-ready implementation                                                              | Production growth path                                                                                |
+| ----------------------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Next.js and React             | Vinext's Next-compatible React runtime                                                 | Keep stateless UI instances                                                                           |
+| NestJS modular API            | Typed server route modules plus a pure workflow domain module                          | Extract modules to NestJS when the API becomes independently deployed                                 |
+| PostgreSQL and Prisma         | D1 with revision-checked atomic aggregate updates                                      | Normalize users, projects, tasks, reviews, rounds and jobs into PostgreSQL before high-volume rollout |
+| Redis and BullMQ              | Durable job state, leases, retry delay and an independently running worker             | Move jobs and cross-instance rate limits to managed Redis and BullMQ                                  |
+| S3-compatible storage         | Private R2 object storage with checksums and protected retrieval                       | Use direct signed uploads when file volume requires it                                                |
+| JWT or session auth with RBAC | Sites authenticated sessions with server-side Contributor, QA and Administrator checks | Preserve role checks behind any future identity provider                                              |
+| Sentry and structured logs    | Request IDs, JSON job/action logs, health checks and protected operational metrics     | Connect logs and errors to the selected monitoring provider                                           |
+
+The backend also enforces the complete contributor audio-quality confirmation set. A client cannot bypass the checklist by calling the upload endpoint directly. The confirmed criteria and criteria version are retained with each new task and included in final delivery records.
+
+### Service endpoints
+
+- `GET /api/health` checks database and object-storage availability without returning workspace data.
+- `GET /api/metrics` is Administrator-only and reports team composition, task state totals, claims, transcription backlog/failures, the active round and delivery readiness.
+- `GET /api/workspace` returns a role-filtered workspace snapshot and protected audio or final delivery records.
+- `POST /api/workspace` validates and applies contributor, reviewer and administrator actions through the workflow engine.
+- `POST /api/jobs` is worker-secret protected and leases one asynchronous transcription job at a time.
+
+Write APIs use same-origin checks, bounded request sizes, validated input, role authorization and best-effort per-instance rate limits. Responses carry a request ID and private no-cache/security headers. Review decisions, transcript versions, round actions and team changes remain auditable. The audit list is bounded for the pilot; long-term production audit retention should move to normalized append-only storage.
+
 ## Transaction boundary
 
 Each operation reads `(body, revision)`, applies a pure transition to that snapshot, then updates only if the revision still matches. A failed conditional update restarts the operation against current state, up to twelve attempts. Reads never overwrite concurrent work. Audio uploads are stored first; failed metadata writes trigger best-effort object cleanup. A process crash between object write and metadata commit can leave an orphan object; periodic reconciliation is a future production requirement.

@@ -71,6 +71,8 @@ npm test
 npm run build
 ```
 
+With the local website running, `npm run test:backend` performs a non-destructive readiness check of the database, private object storage, monitoring output and administrator-only access. `GET /api/health` is the infrastructure health endpoint. `GET /api/metrics` provides protected operational totals to administrators.
+
 For a fresh, running local demo database, `node tests/api-smoke.mjs` exercises upload, concurrent claims, authorization, review gates, three-round finalization, export and audio retrieval. It intentionally refuses to run if recordings already exist and leaves one clearly labelled silent fixture in the local database. Do not run it against production.
 
 With the local demo server running, `node tests/login-smoke.mjs` checks all three login routes and workspace redirects without changing workspace records. Unit tests cover the complete role-to-portal access matrix.

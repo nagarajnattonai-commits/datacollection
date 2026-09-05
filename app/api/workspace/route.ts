@@ -3,19 +3,29 @@ import { actorFor, checkOrigin, localDemo } from '@/lib/auth';
 import { mutate, readState } from '@/lib/store';
 import * as w from '@/lib/workflow';
 import { sniffAudio } from '@/lib/audio';
+import {
+  audioCriteriaVersion,
+  validateAudioCriteria,
+} from '@/lib/audio-criteria';
+import {
+  apiHeaders,
+  apiJson,
+  enforceRateLimit,
+  logRequest,
+  requestId,
+} from '@/lib/api';
 export const dynamic = 'force-dynamic';
-const json = (value: unknown, status = 200) =>
-  Response.json(value, { status, headers: { 'Cache-Control': 'no-store' } });
-function fail(error: unknown) {
+function fail(error: unknown, id: string) {
   if (error instanceof w.WorkflowError)
-    return json({ error: error.message }, error.status);
-  console.error(
-    'Workspace request failed',
-    error instanceof Error ? error.message : 'Unknown failure',
-  );
-  return json(
+    return apiJson({ error: error.message }, error.status, id);
+  logRequest('error', 'workspace_request_failed', {
+    requestId: id,
+    error: error instanceof Error ? error.message : 'Unknown failure',
+  });
+  return apiJson(
     { error: 'The workspace could not save this action. Please try again.' },
     500,
+    id,
   );
 }
 function str(value: unknown, max = 50000): string {
@@ -24,7 +34,9 @@ function str(value: unknown, max = 50000): string {
   return value;
 }
 export async function GET(request: Request) {
+  const traceId = requestId(request);
   try {
+    enforceRateLimit(request, 'workspace-read', 180);
     const { state } = await readState();
     const actor = await actorFor(request, state);
     const url = new URL(request.url);
@@ -35,12 +47,12 @@ export async function GET(request: Request) {
       const object = await env.FILES.get(task.audioKey);
       if (!object) throw new w.WorkflowError('Audio is unavailable.', 404);
       return new Response(object.body, {
-        headers: {
+        headers: apiHeaders(traceId, {
           'Content-Type': task.mime,
           'Content-Length': String(object.size),
           'Cache-Control': 'private, no-store',
           'X-Content-Type-Options': 'nosniff',
-        },
+        }),
       });
     }
     if (url.searchParams.has('export')) {
@@ -61,6 +73,7 @@ export async function GET(request: Request) {
           source: t.source,
           noEditStreak: t.streak,
           sha256: t.checksum,
+          audioQuality: t.quality ?? null,
           audioPath: `/api/workspace?audio=${encodeURIComponent(t.id)}`,
           reviews: t.reviews,
         }));
@@ -75,12 +88,12 @@ export async function GET(request: Request) {
           2,
         ),
         {
-          headers: {
+          headers: apiHeaders(traceId, {
             'Content-Type': 'application/json',
             'Content-Disposition':
               'attachment; filename="fieldnote-delivery.json"',
             'Cache-Control': 'no-store',
-          },
+          }),
         },
       );
     }
@@ -94,18 +107,24 @@ export async function GET(request: Request) {
             rounds: [],
           }
         : state;
-    return json({
-      state: visible,
-      actor,
-      demo: localDemo(request),
-      automaticSttConfigured: !!env.OPENAI_API_KEY,
-    });
+    return apiJson(
+      {
+        state: visible,
+        actor,
+        demo: localDemo(request),
+        automaticSttConfigured: !!env.OPENAI_API_KEY,
+      },
+      200,
+      traceId,
+    );
   } catch (error) {
-    return fail(error);
+    return fail(error, traceId);
   }
 }
 export async function POST(request: Request) {
+  const traceId = requestId(request);
   try {
+    enforceRateLimit(request, 'workspace-write', 90);
     checkOrigin(request);
     const { state } = await readState();
     const actor = await actorFor(request, state);
@@ -119,12 +138,18 @@ export async function POST(request: Request) {
         throw new w.WorkflowError('Maximum upload size is 20 MB.', 413);
       const form = await request.formData();
       const file = form.get('audio');
+      const confirmed = validateAudioCriteria(form.get('qualityChecks'));
       if (
         !(file instanceof File) ||
         file.size === 0 ||
         file.size > 20 * 1024 * 1024
       )
         throw new w.WorkflowError('Choose an audio file up to 20 MB.', 400);
+      if (!confirmed.length)
+        throw new w.WorkflowError(
+          'Confirm every audio quality check before submitting.',
+          400,
+        );
       const bytes = new Uint8Array(await file.arrayBuffer());
       const mime = sniffAudio(bytes);
       const checksum = Array.from(
@@ -132,15 +157,15 @@ export async function POST(request: Request) {
       )
         .map((b) => b.toString(16).padStart(2, '0'))
         .join('');
-      const id = crypto.randomUUID(),
-        audioKey = `audio/${id}`;
+      const taskId = crypto.randomUUID(),
+        audioKey = `audio/${taskId}`;
       await env.FILES.put(audioKey, bytes, {
         httpMetadata: { contentType: mime },
       });
       try {
         await mutate((s) => {
           const task: w.Task = {
-            id,
+            id: taskId,
             name: file.name.slice(0, 180),
             contributor: actor.id,
             created: Date.now(),
@@ -148,6 +173,11 @@ export async function POST(request: Request) {
             mime,
             bytes: file.size,
             checksum,
+            quality: {
+              criteriaVersion: audioCriteriaVersion,
+              confirmed,
+              confirmedAt: Date.now(),
+            },
             language: s.config.language,
             locale: s.config.locale,
             status: 'QUICK_REVIEW',
@@ -163,7 +193,15 @@ export async function POST(request: Request) {
         await env.FILES.delete(audioKey);
         throw error;
       }
-      return json({ id }, 201);
+      logRequest('info', 'audio_submitted', {
+        requestId: traceId,
+        actorId: actor.id,
+        role: actor.role,
+        taskId,
+        bytes: file.size,
+        mime,
+      });
+      return apiJson({ id: taskId }, 201, traceId);
     }
     if (Number(request.headers.get('content-length')) > 100000)
       throw new w.WorkflowError('Request is too large.', 413);
@@ -253,10 +291,16 @@ export async function POST(request: Request) {
       }
       throw new w.WorkflowError('Unknown action.', 400);
     });
-    return json({ ok: true, result });
+    logRequest('info', 'workspace_action_completed', {
+      requestId: traceId,
+      actorId: actor.id,
+      role: actor.role,
+      action,
+    });
+    return apiJson({ ok: true, result }, 200, traceId);
   } catch (error) {
     if (error instanceof SyntaxError)
-      return json({ error: 'Invalid request.' }, 400);
-    return fail(error);
+      return apiJson({ error: 'Invalid request.' }, 400, traceId);
+    return fail(error, traceId);
   }
 }

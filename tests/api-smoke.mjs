@@ -44,6 +44,17 @@ form.set(
   new Blob([bytes], { type: 'audio/wav' }),
   'TEST ONLY - silent audio fixture.wav',
 );
+form.set(
+  'qualityChecks',
+  JSON.stringify([
+    'quiet',
+    'pace',
+    'distance',
+    'clarity',
+    'complete',
+    'playback',
+  ]),
+);
 const submitted = await fetch(`${base}/api/workspace`, {
   method: 'POST',
   headers: { 'x-demo-role': 'contributor' },
@@ -115,6 +126,7 @@ assert.equal((await audio.arrayBuffer()).byteLength, bytes.length);
 const exported = await (await fetch(`${base}/api/workspace?export=1`)).json();
 assert.equal(exported.records.length, 1);
 assert.equal(exported.records[0].reviews.length, 3);
+assert.equal(exported.records[0].audioQuality.criteriaVersion, 1);
 const invalid = new FormData();
 invalid.set('audio', new Blob(['This is not an audio file.']), 'fake.wav');
 assert.equal(

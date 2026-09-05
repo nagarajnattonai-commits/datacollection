@@ -304,6 +304,10 @@ export default function Workspace({
     try {
       const form = new FormData();
       form.set('audio', file);
+      form.set(
+        'qualityChecks',
+        JSON.stringify(audioCriteria.map((item) => item.id)),
+      );
       await api('/api/workspace', { method: 'POST', body: form });
       setFile(null);
       setQualityChecks({});
