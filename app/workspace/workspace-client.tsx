@@ -145,7 +145,7 @@ export default function Workspace({
     [tab, setTab] = useState(
       initialRole === 'qa'
         ? 'quick'
-        : initialRole === 'admin'
+        : initialRole === 'admin' || initialRole === 'team_leader'
           ? 'manage'
           : 'contribute',
     );
@@ -400,8 +400,13 @@ export default function Workspace({
         ?.reviews.some((r) => r.round === round.number),
     ).length ?? 0;
   const mine = state?.tasks.filter((t) => t.contributor === actor?.id) ?? [];
-  const canReview = actor?.role === 'admin' || actor?.role === 'qa';
+  const canReview =
+    actor?.role === 'admin' ||
+    actor?.role === 'team_leader' ||
+    actor?.role === 'qa';
   const admin = actor?.role === 'admin';
+  const manager = admin || actor?.role === 'team_leader';
+  const canContribute = admin || actor?.role === 'contributor';
   const quick = state?.tasks.filter((t) => t.status === 'QUICK_REVIEW') ?? [];
   const deep = state?.tasks.filter((t) => t.status === 'DEEP_REVIEW') ?? [];
   const ready =
@@ -696,7 +701,7 @@ export default function Workspace({
           </section>
           <Tabs value={tab} onValueChange={(v) => setTab(String(v))}>
             <TabsList className="workspace-tabs" variant="line">
-              {actor?.role !== 'qa' && (
+              {canContribute && (
                 <TabsTrigger value="contribute">
                   <Mic /> Contributor studio
                 </TabsTrigger>
@@ -711,12 +716,12 @@ export default function Workspace({
                   <ClipboardCheck /> Deep Review
                 </TabsTrigger>
               )}
-              {admin && (
+              {manager && (
                 <TabsTrigger value="manage">
                   <Settings2 /> Manage project
                 </TabsTrigger>
               )}
-              {admin && (
+              {manager && (
                 <TabsTrigger value="delivery">
                   <Download /> Delivery
                 </TabsTrigger>
@@ -1164,62 +1169,62 @@ export default function Workspace({
                     </form>
                   )}
                 </section>
-                <section className="panel">
-                  <h2>
-                    <Users className="inline-icon" /> Team access
-                  </h2>
-                  <p>Add the email each teammate uses to sign in.</p>
-                  <form
-                    onSubmit={async (e) => {
-                      e.preventDefault();
-                      if (
-                        await action(
-                          {
-                            action: 'member',
-                            email: memberEmail,
-                            role: memberRole,
-                          },
-                          'Team access updated.',
+                {admin && (
+                  <section className="panel">
+                    <h2>
+                      <Users className="inline-icon" /> Team access
+                    </h2>
+                    <p>Add the email each teammate uses to sign in.</p>
+                    <form
+                      onSubmit={async (e) => {
+                        e.preventDefault();
+                        if (
+                          await action(
+                            {
+                              action: 'member',
+                              email: memberEmail,
+                              role: memberRole,
+                            },
+                            'Team access updated.',
+                          )
                         )
-                      )
-                        setMemberEmail('');
-                    }}
-                  >
-                    <label className="field">
-                      <span>Email</span>
-                      <Input
-                        type="email"
-                        required
-                        value={memberEmail}
-                        onChange={(e) => setMemberEmail(e.target.value)}
+                          setMemberEmail('');
+                      }}
+                    >
+                      <label className="field">
+                        <span>Email</span>
+                        <Input
+                          type="email"
+                          required
+                          value={memberEmail}
+                          onChange={(e) => setMemberEmail(e.target.value)}
+                        />
+                      </label>
+                      <Choice
+                        label="Role"
+                        value={memberRole}
+                        onChange={setMemberRole}
+                        options={[
+                          { value: 'contributor', label: 'Contributor' },
+                          { value: 'qa', label: 'QA reviewer' },
+                          { value: 'team_leader', label: 'Team leader' },
+                          { value: 'admin', label: 'Administrator' },
+                        ]}
                       />
-                    </label>
-                    <Choice
-                      label="Role"
-                      value={memberRole}
-                      onChange={setMemberRole}
-                      options={[
-                        { value: 'contributor', label: 'Contributor' },
-                        { value: 'qa', label: 'QA reviewer' },
-                        {
-                          value: 'admin',
-                          label: 'Administrator / team leader',
-                        },
-                      ]}
-                    />
-                    <Button type="submit" disabled={busy}>
-                      Add or update member
-                    </Button>
-                  </form>
-                  <div className="member-list">
-                    {state!.members.map((m) => (
-                      <div key={m.email}>
-                        <span>{m.email}</span>
-                        <span className="pill">{m.role}</span>
-                      </div>
-                    ))}
-                  </div>
-                </section>
+                      <Button type="submit" disabled={busy}>
+                        Add or update member
+                      </Button>
+                    </form>
+                    <div className="member-list">
+                      {state!.members.map((m) => (
+                        <div key={m.email}>
+                          <span>{m.email}</span>
+                          <span className="pill">{m.role}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                )}
               </div>
               <section className="panel submissions">
                 <h2>Team activity</h2>
@@ -1267,7 +1272,7 @@ export default function Workspace({
                 {!ready.length ? (
                   <Blank
                     title="Quality takes a few rounds"
-                    description="Completed recordings arrive here automatically when the administrator closes their third consecutive clean round."
+                    description="Completed recordings arrive here automatically when an administrator or team leader closes their third consecutive clean round."
                   />
                 ) : (
                   <Table>

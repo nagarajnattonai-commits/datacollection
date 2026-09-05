@@ -29,6 +29,12 @@ export async function POST(request: Request) {
         emailRedirectTo: callback.toString(),
         data: {
           full_name: input.fullName,
+          phone: input.phone,
+          occupation: input.occupation,
+          work_details: input.workDetails,
+          organization: input.organization,
+          city: input.city,
+          country: input.country,
           requested_role: input.portal,
         },
       },

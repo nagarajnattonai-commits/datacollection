@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { assignedRole, parseRole, workspaceAccess } from '../lib/portals.ts';
 import type { Role } from '../lib/workflow.ts';
 
-const roles: Role[] = ['contributor', 'qa', 'admin'];
+const roles: Role[] = ['contributor', 'qa', 'team_leader', 'admin'];
 test('portal parameters accept only exact known roles', () => {
   for (const role of roles) assert.equal(parseRole(role), role);
   for (const value of [
@@ -37,14 +37,20 @@ test('every production role is checked against every requested portal', () => {
         workspaceAccess(false, actual, requested),
         actual === requested
           ? { role: actual }
-          : { redirect: `/login/${requested}` },
+          : {
+              redirect:
+                requested === 'team_leader'
+                  ? '/login/team-leader'
+                  : `/login/${requested}`,
+            },
       );
   }
 });
 test('unsigned and unassigned accounts cannot enter a production workspace', () => {
   for (const role of roles)
     assert.deepEqual(workspaceAccess(false, null, role), {
-      redirect: `/login/${role}`,
+      redirect:
+        role === 'team_leader' ? '/login/team-leader' : `/login/${role}`,
     });
   assert.deepEqual(workspaceAccess(false, null, null), { redirect: '/login' });
 });

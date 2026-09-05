@@ -45,6 +45,9 @@ export function workspaceMetrics(state: State, now = Date.now()) {
         (member) => member.role === 'contributor',
       ).length,
       reviewers: state.members.filter((member) => member.role === 'qa').length,
+      teamLeaders: state.members.filter(
+        (member) => member.role === 'team_leader',
+      ).length,
       administrators: state.members.filter((member) => member.role === 'admin')
         .length,
     },

@@ -6,16 +6,22 @@ import {
   Headphones,
   Mic,
   ShieldCheck,
+  UsersRound,
 } from 'lucide-react';
 import { accountSignOutPath } from '@/app/chatgpt-auth';
 import AuthForm from '@/components/auth-form';
 import { loginContext } from '@/lib/login-context';
-import { portals } from '@/lib/portals';
+import { portalLoginPath, portals } from '@/lib/portals';
 import { audioCriteria } from '@/lib/audio-criteria';
 import type { Role } from '@/lib/workflow';
 import '@/app/login/login.css';
 
-const icons = { contributor: Mic, qa: Headphones, admin: ShieldCheck };
+const icons = {
+  contributor: Mic,
+  qa: Headphones,
+  team_leader: UsersRound,
+  admin: ShieldCheck,
+};
 export default async function RoleLogin({ role }: { role: Role }) {
   const portal = portals[role];
   const { demo, user, role: assigned } = await loginContext();
@@ -72,7 +78,9 @@ export default async function RoleLogin({ role }: { role: Role }) {
               ? 'Ready for your next recording? Sign in to get started.'
               : role === 'qa'
                 ? 'Your next review starts with a fresh listen. Sign in to your review desk.'
-                : 'Sign in to manage your team and keep your collection moving.'}
+                : role === 'team_leader'
+                  ? 'Sign in to coordinate reviews and move the collection forward.'
+                  : 'Sign in to manage access and oversee the collection.'}
           </p>
           {!user ? (
             <>
@@ -91,7 +99,9 @@ export default async function RoleLogin({ role }: { role: Role }) {
                     Try{' '}
                     {role === 'admin'
                       ? 'administrator'
-                      : portal.name.toLowerCase()}{' '}
+                      : role === 'team_leader'
+                        ? 'team leader'
+                        : portal.name.toLowerCase()}{' '}
                     demo <ArrowRight size={18} aria-hidden="true" />
                   </a>
                 </div>
@@ -114,7 +124,7 @@ export default async function RoleLogin({ role }: { role: Role }) {
                     Your account has {portals[assigned].name} access. Continue
                     through your assigned portal.
                   </output>
-                  <a className="login-button" href={`/login/${assigned}`}>
+                  <a className="login-button" href={portalLoginPath(assigned)}>
                     Go to your portal{' '}
                     <ArrowRight size={18} aria-hidden="true" />
                   </a>
@@ -126,7 +136,7 @@ export default async function RoleLogin({ role }: { role: Role }) {
               )}
               <a
                 className="login-switch"
-                href={accountSignOutPath(`/login/${role}`)}
+                href={accountSignOutPath(portalLoginPath(role))}
                 target="_top"
               >
                 Sign out or switch account

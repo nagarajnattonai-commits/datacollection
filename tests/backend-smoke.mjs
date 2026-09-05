@@ -16,6 +16,29 @@ const denied = await fetch(`${base}/api/metrics`, {
   headers: { 'x-demo-role': 'contributor' },
 });
 assert.equal(denied.status, 403);
+const leaderMetrics = await fetch(`${base}/api/metrics`, {
+  headers: { 'x-demo-role': 'team_leader' },
+});
+assert.equal(leaderMetrics.status, 403);
+const leaderWorkspace = await fetch(`${base}/api/workspace`, {
+  headers: { 'x-demo-role': 'team_leader' },
+});
+assert.equal(leaderWorkspace.status, 200);
+assert.equal((await leaderWorkspace.json()).actor.role, 'team_leader');
+const leaderAccessChange = await fetch(`${base}/api/workspace`, {
+  method: 'POST',
+  headers: {
+    'content-type': 'application/json',
+    origin: base,
+    'x-demo-role': 'team_leader',
+  },
+  body: JSON.stringify({
+    action: 'member',
+    email: 'permission-check@example.com',
+    role: 'contributor',
+  }),
+});
+assert.equal(leaderAccessChange.status, 403);
 const metrics = await fetch(`${base}/api/metrics`, {
   headers: { 'x-demo-role': 'admin' },
 });
@@ -26,5 +49,5 @@ assert.equal(typeof body.tasks.transcriptionBacklog, 'number');
 assert.equal(typeof body.team.total, 'number');
 
 console.log(
-  'Backend health, storage checks, monitoring metrics and role protection passed. No workspace data changed.',
+  'Backend health, storage checks, administrator metrics and Team Leader access boundaries passed. No workspace data changed.',
 );

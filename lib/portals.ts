@@ -26,17 +26,30 @@ export const portals = {
       'Submit each review with confidence',
     ],
   },
-  admin: {
-    name: 'Administrator / Team Leader',
-    title: 'Bring the whole project together.',
+  team_leader: {
+    name: 'Team Leader',
+    title: 'Guide every recording forward.',
     description:
-      'Manage your team, guide review rounds, and prepare approved recordings for delivery.',
+      'Coordinate reviews, manage transcription, and prepare completed recordings for delivery.',
+    action: 'Open team operations',
+    tag: 'TEAM OPERATIONS',
+    steps: [
+      'Coordinate review rounds',
+      'Manage transcripts and settings',
+      'Prepare approved delivery records',
+    ],
+  },
+  admin: {
+    name: 'Administrator',
+    title: 'Secure the whole project.',
+    description:
+      'Control team access, oversee operations, and monitor the complete collection.',
     action: 'Open project management',
     tag: 'PROJECT CONTROL',
     steps: [
-      'Manage team access',
-      'Coordinate review rounds',
-      'Prepare final delivery',
+      'Manage every team role',
+      'Oversee project operations',
+      'Review metrics and delivery',
     ],
   },
 } satisfies Record<
@@ -52,9 +65,16 @@ export const portals = {
 >;
 
 export function parseRole(value: unknown): Role | null {
-  return value === 'contributor' || value === 'qa' || value === 'admin'
+  return value === 'contributor' ||
+    value === 'qa' ||
+    value === 'team_leader' ||
+    value === 'admin'
     ? value
     : null;
+}
+
+export function portalLoginPath(role: Role) {
+  return `/login/${role === 'team_leader' ? 'team-leader' : role}`;
 }
 
 export function assignedRole(
@@ -78,6 +98,6 @@ export function workspaceAccess(
 ): { role: Role } | { redirect: string } {
   if (demo) return requested ? { role: requested } : { redirect: '/login' };
   if (!assigned || (requested && requested !== assigned))
-    return { redirect: requested ? `/login/${requested}` : '/login' };
+    return { redirect: requested ? portalLoginPath(requested) : '/login' };
   return { role: assigned };
 }

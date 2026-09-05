@@ -2,13 +2,23 @@
 
 import { useState } from 'react';
 import { ArrowRight, Eye, EyeOff } from 'lucide-react';
-import { validateSignupInput } from '@/lib/auth-validation';
-import { portals } from '@/lib/portals';
+import {
+  occupationOptions,
+  validateSignupInput,
+  type Occupation,
+} from '@/lib/auth-validation';
+import { portalLoginPath, portals } from '@/lib/portals';
 import type { Role } from '@/lib/workflow';
 
 export default function SignupForm({ initialRole }: { initialRole: Role }) {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [occupation, setOccupation] = useState<Occupation | ''>('');
+  const [workDetails, setWorkDetails] = useState('');
+  const [organization, setOrganization] = useState('');
+  const [city, setCity] = useState('');
+  const [country, setCountry] = useState('India');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [portal, setPortal] = useState<Role>(initialRole);
@@ -25,6 +35,12 @@ export default function SignupForm({ initialRole }: { initialRole: Role }) {
       const input = validateSignupInput({
         fullName,
         email,
+        phone,
+        occupation,
+        workDetails,
+        organization,
+        city,
+        country,
         password,
         confirmPassword,
         portal,
@@ -78,6 +94,103 @@ export default function SignupForm({ initialRole }: { initialRole: Role }) {
           maxLength={254}
         />
       </label>
+      <div className="signup-two-fields">
+        <label className="auth-field">
+          <span>Phone number</span>
+          <input
+            name="phone"
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            value={phone}
+            onChange={(event) => setPhone(event.target.value)}
+            placeholder="+91 98765 43210"
+            required
+            maxLength={25}
+          />
+        </label>
+        <label className="auth-field">
+          <span>Occupation / current status</span>
+          <select
+            name="occupation"
+            value={occupation}
+            onChange={(event) =>
+              setOccupation(event.target.value as Occupation)
+            }
+          >
+            <option value="" disabled>
+              Select one
+            </option>
+            {occupationOptions.map((option) => (
+              <option value={option.value} key={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      {['professional', 'self_employed', 'student'].includes(occupation) && (
+        <div className="signup-two-fields">
+          <label className="auth-field">
+            <span>
+              {occupation === 'student'
+                ? 'Course / field of study'
+                : 'Job title / field of work'}
+            </span>
+            <input
+              name="workDetails"
+              value={workDetails}
+              onChange={(event) => setWorkDetails(event.target.value)}
+              placeholder={
+                occupation === 'student' ? 'Computer science' : 'Accountant'
+              }
+              required
+              maxLength={100}
+            />
+          </label>
+          <label className="auth-field">
+            <span>
+              {occupation === 'student'
+                ? 'School / college'
+                : 'Organization / business'}{' '}
+              <small>(optional)</small>
+            </span>
+            <input
+              name="organization"
+              value={organization}
+              onChange={(event) => setOrganization(event.target.value)}
+              placeholder="Organization name"
+              maxLength={120}
+            />
+          </label>
+        </div>
+      )}
+      <div className="signup-two-fields">
+        <label className="auth-field">
+          <span>City</span>
+          <input
+            name="city"
+            autoComplete="address-level2"
+            value={city}
+            onChange={(event) => setCity(event.target.value)}
+            placeholder="Chennai"
+            required
+            maxLength={80}
+          />
+        </label>
+        <label className="auth-field">
+          <span>Country or region</span>
+          <input
+            name="country"
+            autoComplete="country-name"
+            value={country}
+            onChange={(event) => setCountry(event.target.value)}
+            placeholder="India"
+            required
+            maxLength={80}
+          />
+        </label>
+      </div>
       <label className="auth-field">
         <span>Password</span>
         <span className="auth-password">
@@ -132,7 +245,8 @@ export default function SignupForm({ initialRole }: { initialRole: Role }) {
       {portal !== 'contributor' && (
         <p className="auth-role-note">
           An administrator must approve {portals[portal].name} access before
-          this account can open that workspace.
+          this account can open that workspace. Team Leaders can run project
+          operations but cannot grant roles.
         </p>
       )}
       {error && (
@@ -149,7 +263,7 @@ export default function SignupForm({ initialRole }: { initialRole: Role }) {
         {!pending && !success && <ArrowRight size={18} aria-hidden="true" />}
       </button>
       <p className="auth-signup-link">
-        Already have an account? <a href={`/login/${portal}`}>Log in</a>
+        Already have an account? <a href={portalLoginPath(portal)}>Log in</a>
       </p>
     </form>
   );

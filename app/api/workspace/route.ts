@@ -56,9 +56,9 @@ export async function GET(request: Request) {
       });
     }
     if (url.searchParams.has('export')) {
-      if (actor.role !== 'admin')
+      if (!['admin', 'team_leader'].includes(actor.role))
         throw new w.WorkflowError(
-          'Only administrators can export delivery records.',
+          'Only administrators and team leaders can export delivery records.',
           403,
         );
       const records = state.tasks
@@ -241,9 +241,9 @@ export async function POST(request: Request) {
           'manual import',
           now,
         );
-      if (actor.role !== 'admin')
+      if (!['admin', 'team_leader'].includes(actor.role))
         throw new w.WorkflowError(
-          'Only administrators can manage this workspace.',
+          'Only administrators and team leaders can manage this workspace.',
           403,
         );
       if (action === 'config') {
@@ -277,10 +277,17 @@ export async function POST(request: Request) {
         return;
       }
       if (action === 'member') {
+        if (actor.role !== 'admin')
+          throw new w.WorkflowError(
+            'Only administrators can manage team access.',
+            403,
+          );
         const email = str(data.email, 200).trim().toLowerCase();
         if (
           !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
-          !['contributor', 'qa', 'admin'].includes(String(data.role))
+          !['contributor', 'qa', 'team_leader', 'admin'].includes(
+            String(data.role),
+          )
         )
           throw new w.WorkflowError('Enter a valid email and team role.', 400);
         const member = s.members.find((m) => m.email === email);

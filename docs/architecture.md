@@ -29,7 +29,7 @@ The test-ready backend remains a modular monolith, matching the supplied recomme
 | PostgreSQL and Prisma         | Supabase PostgreSQL JSONB source of truth, atomic SQL compare-and-swap, migrations and secured relational views | Move high-volume entity writes into normalized PostgreSQL tables before the 1,000-user rollout |
 | Redis and BullMQ              | Durable job state, leases, retry delay and an independently running worker                                      | Move jobs and cross-instance rate limits to managed Redis and BullMQ                           |
 | S3-compatible storage         | Private R2 object storage with checksums and protected retrieval                                                | Use direct signed uploads when file volume requires it                                         |
-| JWT or session auth with RBAC | Sites authenticated sessions with server-side Contributor, QA and Administrator checks                          | Preserve role checks behind any future identity provider                                       |
+| JWT or session auth with RBAC | Supabase sessions with server-side Contributor, QA, Team Leader and Administrator checks                        | Administrator controls access; Team Leader controls project operations                          |
 | Sentry and structured logs    | Request IDs, JSON job/action logs, health checks and protected operational metrics                              | Connect logs and errors to the selected monitoring provider                                    |
 
 The backend also enforces the complete contributor audio-quality confirmation set. A client cannot bypass the checklist by calling the upload endpoint directly. The confirmed criteria and criteria version are retained with each new task and included in final delivery records.
@@ -39,7 +39,7 @@ The backend also enforces the complete contributor audio-quality confirmation se
 - `GET /api/health` checks database and object-storage availability without returning workspace data.
 - `GET /api/metrics` is Administrator-only and reports team composition, task state totals, claims, transcription backlog/failures, the active round and delivery readiness.
 - `GET /api/workspace` returns a role-filtered workspace snapshot and protected audio or final delivery records.
-- `POST /api/workspace` validates and applies contributor, reviewer and administrator actions through the workflow engine.
+- `POST /api/workspace` validates and applies contributor, reviewer, team leader and administrator actions through the workflow engine.
 - `POST /api/jobs` is worker-secret protected and leases one asynchronous transcription job at a time.
 
 Write APIs use same-origin checks, bounded request sizes, validated input, role authorization and best-effort per-instance rate limits. Responses carry a request ID and private no-cache/security headers. Review decisions, transcript versions, round actions and team changes remain auditable. The audit list is bounded for the pilot; long-term production audit retention should move to normalized append-only storage.

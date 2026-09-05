@@ -16,7 +16,7 @@ The full `tests/api-smoke.mjs` scenario creates a labelled silent recording and 
 1. Open `/login/contributor`. Record or upload supported audio, play it back, confirm all six quality checks and submit it.
 2. Confirm that a Contributor cannot open Administrator metrics or review another person's recording.
 3. Open `/login/qa`. Claim a Quick Review batch, listen, then approve or request a retake. A retake requires feedback.
-4. Open `/login/admin`. Import a real transcript for approved audio, or configure the transcription worker and let it complete the queued job.
+4. Open `/login/team-leader` to import a real transcript, coordinate review rounds, update project settings, and prepare delivery. Use `/login/admin` for team access changes and administrator-only system metrics.
 5. Open a Deep Review round. As QA, claim each eligible task, view previous edits, make any needed correction and submit once.
 6. Confirm that the Administrator cannot close an incomplete round. Finish all tasks and close it.
 7. Repeat until one task receives three consecutive rounds without edits. Confirm it moves to Ready to Deliver and no longer appears in later rounds.

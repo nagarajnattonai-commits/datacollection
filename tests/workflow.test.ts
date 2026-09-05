@@ -18,6 +18,11 @@ import {
 } from '../lib/workflow.ts';
 import { sniffAudio } from '../lib/audio.ts';
 const admin: Actor = { id: 'admin', email: 'admin@test.local', role: 'admin' },
+  teamLeader: Actor = {
+    id: 'leader',
+    email: 'leader@test.local',
+    role: 'team_leader',
+  },
   qa: Actor = { id: 'qa', email: 'qa@test.local', role: 'qa' },
   other: Actor = { id: 'other', email: 'other@test.local', role: 'qa' },
   contributor: Actor = {
@@ -143,6 +148,15 @@ test('contributors cannot review or control rounds', () => {
   assert.throws(() => claimTasks(s, contributor, 'deep', 1, 5));
   assert.throws(() => openRound(s, contributor, 5));
   assert.throws(() => setTranscript(s, qa, 'one', 'Wrong role', 'manual', 5));
+});
+test('team leaders can run project operations without administrator identity', () => {
+  const s = approved();
+  setTranscript(s, teamLeader, 'one', 'Original transcript', 'manual', 3);
+  openRound(s, teamLeader, 4);
+  assert.deepEqual(claimTasks(s, teamLeader, 'deep', 1, 5), ['one']);
+  deepReview(s, teamLeader, 'one', 'Original transcript', 6);
+  closeRound(s, teamLeader, 7);
+  assert.equal(s.tasks[0].streak, 1);
 });
 test('job leases exclude concurrent workers and reject stale results', () => {
   const s = approved();

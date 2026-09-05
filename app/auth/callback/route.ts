@@ -1,4 +1,4 @@
-import { parseRole } from '@/lib/portals';
+import { parseRole, portalLoginPath } from '@/lib/portals';
 import { createSupabaseAuthClient } from '@/lib/supabase-auth';
 
 export const dynamic = 'force-dynamic';
@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const portal = parseRole(url.searchParams.get('portal')) ?? 'contributor';
-  const login = new URL(`/login/${portal}`, request.url);
+  const login = new URL(portalLoginPath(portal), request.url);
   const code = url.searchParams.get('code');
   if (!code) {
     login.searchParams.set('auth', 'callback-error');
@@ -23,6 +23,9 @@ export async function GET(request: Request) {
       login.searchParams.set('auth', 'callback-error');
       return Response.redirect(login);
     }
+    await supabase.auth.updateUser({
+      data: { requested_role: portal },
+    });
     return Response.redirect(
       new URL(`/workspace?portal=${portal}`, request.url),
     );

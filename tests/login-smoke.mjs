@@ -5,9 +5,11 @@ if (!['localhost', '127.0.0.1'].includes(new URL(base).hostname))
 for (const [role, heading] of [
   ['contributor', 'Contributor login'],
   ['qa', 'QA Reviewer login'],
-  ['admin', 'Administrator / Team Leader login'],
+  ['team_leader', 'Team Leader login'],
+  ['admin', 'Administrator login'],
 ]) {
-  const response = await fetch(`${base}/login/${role}`);
+  const loginPath = role === 'team_leader' ? 'team-leader' : role;
+  const response = await fetch(`${base}/login/${loginPath}`);
   assert.equal(response.status, 200);
   const body = (await response.text()).replace(/<!--.*?-->/gs, '');
   assert.ok(body.includes(heading), `Missing heading for ${role}`);
@@ -40,6 +42,10 @@ const signupBody = await signup.text();
 for (const expected of [
   'Full name',
   'Email address',
+  'Phone number',
+  'Occupation / current status',
+  'City',
+  'Country or region',
   'Password',
   'Confirm password',
   'Requested portal',
@@ -57,5 +63,5 @@ for (const path of ['/workspace', '/workspace?portal=invalid']) {
   );
 }
 console.log(
-  'Three login pages, signup fields, workspace entries, and invalid portal redirects passed. No workspace data changed.',
+  'Four login pages, expanded signup fields, workspace entries, and invalid portal redirects passed. No workspace data changed.',
 );

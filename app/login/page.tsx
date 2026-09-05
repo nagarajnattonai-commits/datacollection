@@ -4,13 +4,19 @@ import {
   Mic,
   Headphones,
   SlidersHorizontal,
+  UsersRound,
 } from 'lucide-react';
 import { portals } from '@/lib/portals';
 import type { Role } from '@/lib/workflow';
 import './login.css';
 
 export const metadata = { title: 'Choose your workspace · Fieldnote' };
-const icons = { contributor: Mic, qa: Headphones, admin: SlidersHorizontal };
+const icons = {
+  contributor: Mic,
+  qa: Headphones,
+  team_leader: UsersRound,
+  admin: SlidersHorizontal,
+};
 export default function Login() {
   return (
     <main className="login-home">
@@ -29,7 +35,9 @@ export default function Login() {
           return (
             <a
               key={role}
-              href={`/login/${role}`}
+              href={
+                role === 'team_leader' ? '/login/team-leader' : `/login/${role}`
+              }
               className={`portal-card portal-card-${role}`}
             >
               <div className="portal-card-top">

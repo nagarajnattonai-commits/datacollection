@@ -12,7 +12,7 @@ export function localDemo(request: Request) {
 export async function actorFor(request: Request, state: State): Promise<Actor> {
   if (localDemo(request)) {
     const role = request.headers.get('x-demo-role') ?? 'admin';
-    if (!['admin', 'qa', 'contributor'].includes(role))
+    if (!['admin', 'team_leader', 'qa', 'contributor'].includes(role))
       throw new WorkflowError('Unknown demo role.', 400);
     return {
       id: `demo-${role}`,

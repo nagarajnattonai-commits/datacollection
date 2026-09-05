@@ -21,7 +21,7 @@ The example enables **local demo login portals**. They are active only in a deve
 
 1. Select **Contributor**, record or upload an audio file, play it back, and submit it. Uploads accept WAV, MP3, WebM, M4A, OGG and FLAC, up to 20 MB. Retakes are new submissions; the rejected recording and its feedback remain in history.
 2. Select **QA reviewer**, open **Quick Review**, claim a batch, listen, then approve or request a retake with feedback. Reviewers cannot claim their own submissions.
-3. Select **Administrator** and open **Manage project**. With the default manual provider, import the real transcript for approved audio. Manual imports are labelled and do not pretend to be machine transcription.
+3. Select **Team Leader** and open **Manage project**. With the default manual provider, import the real transcript for approved audio. Manual imports are labelled and do not pretend to be machine transcription. Administrators can perform the same project operations and are the only role that can manage team access.
 4. Open a Deep Review round. Switch to **QA reviewer**, claim a batch, listen, edit if necessary, and submit.
 5. The administrator can close the round only after every included recording is reviewed. Each unchanged transcript adds one clean round; any edit resets its streak to zero.
 6. Repeat. After **three consecutive rounds with no edits**, recordings move to **Delivery**. Download the JSON records and individual audio files.
@@ -42,7 +42,7 @@ Provider calls are separate from user upload/review requests. A request timeout 
 
 ## Authentication and team access
 
-Separate login pages are available at `/login/contributor`, `/login/qa`, and `/login/admin` (Administrator / Team Leader). Each page has its own visual design and supports validated email/password login, password visibility controls, Google login, and account signup. Signup collects full name, email, password confirmation, and requested portal. Requesting QA or Administrator access never grants that role automatically.
+Separate login pages are available at `/login/contributor`, `/login/qa`, `/login/team-leader`, and `/login/admin`. Each page has its own visual design and supports validated email/password login, password visibility controls, Google login, and account signup. Signup collects full name, email, phone number, occupation/current status, relevant work or study details, organization, city, country, password confirmation, and requested portal. Requesting QA, Team Leader, or Administrator access never grants that role automatically.
 
 Authentication uses Supabase Auth with server-managed PKCE cookies. Configure `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY`, enable the Email and Google providers in Supabase Auth, and add these redirect URLs to the project's allow list:
 
@@ -53,7 +53,7 @@ https://your-hostname.example/auth/callback
 
 For Google, copy Supabase's provider callback URL into the Google Cloud OAuth client, then add the Google client ID and secret in the Supabase provider settings. The Google secret belongs in Supabase, not this repository.
 
-`/workspace` checks the authenticated account's assigned role on the server; selecting or requesting another portal does not grant access. Set `ADMIN_EMAIL` to the owner's exact email. That administrator can add contributor, QA, or administrator emails in **Manage project**. Unassigned accounts see an invitation message, and accounts with a different role are guided to their assigned portal. Audio and delivery endpoints repeat the server-side authorization check.
+`/workspace` checks the authenticated account's assigned role on the server; selecting or requesting another portal does not grant access. Set `ADMIN_EMAIL` to the owner's exact email. Administrators can grant and change every role and view system metrics. Team Leaders can coordinate reviews, transcripts, project settings, rounds, and delivery, but cannot manage access or view administrator-only metrics. Unassigned accounts see an invitation message, and accounts with a different role are guided to their assigned portal. Audio and delivery endpoints repeat the server-side authorization check.
 
 If Supabase Auth is not configured, a trusted Sites identity remains available for existing hosted environments. The local demo is only for localhost development and is not an Internet-facing authentication system.
 

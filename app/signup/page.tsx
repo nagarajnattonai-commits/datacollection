@@ -1,7 +1,7 @@
 import { AudioLines, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import SignupForm from '@/components/signup-form';
-import { parseRole } from '@/lib/portals';
+import { parseRole, portalLoginPath } from '@/lib/portals';
 import '@/app/login/login.css';
 
 export const metadata = { title: 'Create account · Fieldnote' };
@@ -19,15 +19,15 @@ export default async function SignupPage({
         <Link className="login-brand" href="/login">
           <AudioLines aria-hidden="true" /> FIELDNOTE
         </Link>
-        <Link className="signup-back" href={`/login/${portal}`}>
+        <Link className="signup-back" href={portalLoginPath(portal)}>
           <ArrowLeft size={16} aria-hidden="true" /> Back to login
         </Link>
         <div className="signup-heading">
           <p className="login-kicker">CREATE YOUR ACCOUNT</p>
           <h1>Join the collection.</h1>
           <p>
-            Add your basic details and choose the workspace you need. Your
-            administrator controls final role access.
+            Add your contact, occupation, and location details, then choose the
+            workspace you need. Your administrator controls final role access.
           </p>
         </div>
         <SignupForm initialRole={portal} />

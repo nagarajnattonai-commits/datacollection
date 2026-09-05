@@ -1,4 +1,4 @@
-export type Role = 'contributor' | 'qa' | 'admin';
+export type Role = 'contributor' | 'qa' | 'team_leader' | 'admin';
 export type Actor = { id: string; email: string; role: Role };
 export type Status =
   | 'QUICK_REVIEW'
@@ -140,7 +140,7 @@ export function claimTasks(
   count: number,
   now: number,
 ) {
-  requireRole(actor, ['qa', 'admin']);
+  requireRole(actor, ['qa', 'team_leader', 'admin']);
   if (!Number.isInteger(count) || count < 1 || count > 10)
     throw new WorkflowError('Claim between 1 and 10 tasks.', 400);
   const round = currentRound(state);
@@ -178,7 +178,7 @@ export function quickReview(
   note: string,
   now: number,
 ) {
-  requireRole(actor, ['qa', 'admin']);
+  requireRole(actor, ['qa', 'team_leader', 'admin']);
   const task = findTask(state, id);
   if (task.status !== 'QUICK_REVIEW')
     throw new WorkflowError('This recording has already been reviewed.');
@@ -207,7 +207,7 @@ export function setTranscript(
   source: string,
   now: number,
 ) {
-  requireRole(actor, ['admin']);
+  requireRole(actor, ['team_leader', 'admin']);
   const task = findTask(state, id);
   if (!['STT_PENDING', 'STT_FAILED'].includes(task.status))
     throw new WorkflowError('This task is not waiting for a transcript.');
@@ -224,7 +224,7 @@ export function setTranscript(
   audit(state, actor, 'Original transcript imported', now, id);
 }
 export function openRound(state: State, actor: Actor, now: number) {
-  requireRole(actor, ['admin']);
+  requireRole(actor, ['team_leader', 'admin']);
   if (currentRound(state))
     throw new WorkflowError('Close the current round first.');
   const taskIds = state.tasks
@@ -247,7 +247,7 @@ export function deepReview(
   text: string,
   now: number,
 ) {
-  requireRole(actor, ['qa', 'admin']);
+  requireRole(actor, ['qa', 'team_leader', 'admin']);
   const task = findTask(state, id);
   const round = currentRound(state);
   if (!round || !round.taskIds.includes(id) || task.status !== 'DEEP_REVIEW')
@@ -276,7 +276,7 @@ export function deepReview(
   audit(state, actor, 'Deep Review submitted', now, id);
 }
 export function closeRound(state: State, actor: Actor, now: number) {
-  requireRole(actor, ['admin']);
+  requireRole(actor, ['team_leader', 'admin']);
   const round = currentRound(state);
   if (!round) throw new WorkflowError('No round is open.');
   if (
@@ -299,7 +299,7 @@ export function closeRound(state: State, actor: Actor, now: number) {
   audit(state, actor, 'Deep Review round closed and evaluated', now);
 }
 export function retryJob(state: State, actor: Actor, id: string, now: number) {
-  requireRole(actor, ['admin']);
+  requireRole(actor, ['team_leader', 'admin']);
   const task = findTask(state, id);
   if (task.status !== 'STT_FAILED')
     throw new WorkflowError('Only failed transcription jobs can be retried.');

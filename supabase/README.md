@@ -1,6 +1,6 @@
 # Supabase PostgreSQL setup
 
-The migration in `migrations/` creates the Fieldnote PostgreSQL source-of-truth table, an atomic compare-and-swap function, secured operational views, indexes, and least-privilege grants.
+The migrations in `migrations/` create the Fieldnote PostgreSQL source-of-truth table, a private signup-profile table, an atomic compare-and-swap function, secured operational views, indexes, and least-privilege grants. Signup profile data is copied from Supabase Auth metadata into `fieldnote_profiles`; its requested role is informational and never grants workspace access.
 
 1. Create or select a Supabase project.
 2. Link this repository with the Supabase CLI.

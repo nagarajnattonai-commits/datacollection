@@ -1,4 +1,4 @@
-import { parseRole } from '@/lib/portals';
+import { parseRole, portalLoginPath } from '@/lib/portals';
 import { createSupabaseAuthClient } from '@/lib/supabase-auth';
 
 export const dynamic = 'force-dynamic';
@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
   const portal = parseRole(new URL(request.url).searchParams.get('portal'));
   if (!portal) return Response.redirect(new URL('/login', request.url));
-  const failure = new URL(`/login/${portal}`, request.url);
+  const failure = new URL(portalLoginPath(portal), request.url);
   try {
     const supabase = await createSupabaseAuthClient();
     if (!supabase) {
