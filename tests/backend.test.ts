@@ -5,6 +5,8 @@ import { enforceRateLimit, requestId } from '../lib/api.ts';
 import { workspaceMetrics } from '../lib/metrics.ts';
 import { initialState, type Task } from '../lib/workflow.ts';
 import {
+  cachedProjectAccess,
+  clearProjectSchemaCache,
   validateIntakeAnswers,
   validateProjectConfig,
 } from '../lib/project-schema.ts';
@@ -45,6 +47,20 @@ test('project-driven intake accepts configured answers and rejects missing ones'
     validateProjectConfig(config).technical.maxBytes,
     20 * 1024 * 1024,
   );
+});
+
+test('project schema and access data use a short-lived read cache', async () => {
+  clearProjectSchemaCache('cache-test');
+  let loads = 0;
+  const loader = async () => {
+    loads += 1;
+    return { schema: initialState().config, members: [] };
+  };
+  const first = await cachedProjectAccess('cache-test', loader, 1_000);
+  first.schema.name = 'Changed in caller';
+  const second = await cachedProjectAccess('cache-test', loader, 1_001);
+  assert.equal(loads, 1);
+  assert.notEqual(second.schema.name, 'Changed in caller');
 });
 
 test('R2 upload parts receive bounded signed URLs without exposing the secret', async () => {

@@ -113,6 +113,32 @@ function Status({ task }: { task: Task }) {
     </span>
   );
 }
+type ContributorStatus =
+  | 'pending_review'
+  | 'needs_redo'
+  | 'approved'
+  | 'delivered';
+const contributorStatusLabels: Record<ContributorStatus, string> = {
+  pending_review: 'Pending review',
+  needs_redo: 'Needs redo',
+  approved: 'Approved',
+  delivered: 'Delivered',
+};
+function contributorStatus(task: Task): ContributorStatus {
+  if (task.status === 'REJECTED') return 'needs_redo';
+  if (task.status === 'READY_TO_DELIVER') return 'delivered';
+  if (task.status === 'PROCESSING' || task.status === 'QUICK_REVIEW')
+    return 'pending_review';
+  return 'approved';
+}
+function ContributorStatusBadge({ task }: { task: Task }) {
+  const status = contributorStatus(task);
+  return (
+    <span className={`status contributor-status-${status}`}>
+      {contributorStatusLabels[status]}
+    </span>
+  );
+}
 function Player({ src }: { src: string }) {
   const ref = useRef<HTMLAudioElement>(null);
   const [speed, setSpeed] = useState('1');
@@ -178,6 +204,7 @@ export default function Workspace({
   const [uploadProgress, setUploadProgress] = useState(0);
   const [resubmitTaskId, setResubmitTaskId] = useState<string | null>(null);
   const [submissionFilter, setSubmissionFilter] = useState('all');
+  const [selectedRecording, setSelectedRecording] = useState<Task | null>(null);
   const [qualityChecks, setQualityChecks] = useState<Record<string, boolean>>(
     {},
   );
@@ -190,6 +217,9 @@ export default function Workspace({
     animationFrame = useRef<number | null>(null),
     recordingStartedAt = useRef(0),
     uploadIdentity = useRef<string | null>(null),
+    uploadedParts = useRef<
+      Record<string, { partNumber: number; etag: string }[]>
+    >({}),
     recordPanel = useRef<HTMLElement | null>(null);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
@@ -216,6 +246,22 @@ export default function Workspace({
   );
   const refresh = useCallback(async () => {
     const next = (await (await api()).json()) as Snapshot;
+    if (next.actor.role === 'contributor') {
+      const [schemaResponse, recordingsResponse] = await Promise.all([
+        api(`/projects/${encodeURIComponent(next.state.config.id)}/schema`),
+        api('/contributors/me/recordings'),
+      ]);
+      const schemaResult = (await schemaResponse.json()) as {
+        schema: State['config'];
+        directUploadConfigured: boolean;
+      };
+      const recordingsResult = (await recordingsResponse.json()) as {
+        recordings: Task[];
+      };
+      next.state.config = schemaResult.schema;
+      next.state.tasks = recordingsResult.recordings;
+      next.directUploadConfigured = schemaResult.directUploadConfigured;
+    }
     setData(next);
     setConfig((c) => c ?? next.state.config);
     return next;
@@ -368,6 +414,7 @@ export default function Workspace({
     setAnalyzing(true);
     setAnalysis(null);
     uploadIdentity.current = null;
+    uploadedParts.current = {};
     setConsentAccepted(false);
     setQualityChecks({});
     try {
@@ -443,8 +490,8 @@ export default function Workspace({
           uploadIdentity.current ??
           (uploadIdentity.current = crypto.randomUUID());
         const startPath = resubmitTaskId
-          ? `/api/recordings/${encodeURIComponent(resubmitTaskId)}/resubmit`
-          : '/api/recordings/upload-url';
+          ? `/recordings/${encodeURIComponent(resubmitTaskId)}/resubmit`
+          : '/recordings/upload-url';
         const instructions = (await (
           await api(startPath, {
             method: 'POST',
@@ -468,8 +515,14 @@ export default function Workspace({
           parts: { partNumber: number; url: string }[];
         };
         if (!instructions.alreadySubmitted) {
-          const uploaded: { partNumber: number; etag: string }[] = [];
+          const uploaded = uploadedParts.current[instructions.sessionId] ?? [];
+          uploadedParts.current[instructions.sessionId] = uploaded;
+          setUploadProgress(
+            Math.round((100 * uploaded.length) / instructions.parts.length),
+          );
           for (const part of instructions.parts) {
+            if (uploaded.some((item) => item.partNumber === part.partNumber))
+              continue;
             const start = (part.partNumber - 1) * instructions.partSize;
             const slice = file.slice(
               start,
@@ -485,7 +538,7 @@ export default function Workspace({
               Math.round((100 * uploaded.length) / instructions.parts.length),
             );
           }
-          await api('/api/recordings', {
+          await api('/recordings', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -497,6 +550,7 @@ export default function Workspace({
               qualityChecks: audioCriteria.map((item) => item.id),
             }),
           });
+          delete uploadedParts.current[instructions.sessionId];
         }
       } else {
         const form = new FormData();
@@ -529,6 +583,30 @@ export default function Workspace({
     } finally {
       setBusy(false);
     }
+  }
+  async function loadRecording(id: string) {
+    setBusy(true);
+    setError('');
+    try {
+      const result = (await (
+        await api(`/recordings/${encodeURIComponent(id)}`)
+      ).json()) as { recording: Task };
+      setSelectedRecording(result.recording);
+    } catch (caught) {
+      setError((caught as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  function beginResubmission(task: Task) {
+    setResubmitTaskId(task.id);
+    setFile(null);
+    setAnalysis(null);
+    setQualityChecks({});
+    setConsentAccepted(false);
+    uploadIdentity.current = null;
+    uploadedParts.current = {};
+    recordPanel.current?.scrollIntoView({ behavior: 'smooth' });
   }
   async function download() {
     setBusy(true);
@@ -612,7 +690,9 @@ export default function Workspace({
     ).length ?? 0;
   const mine = state?.tasks.filter((t) => t.contributor === actor?.id) ?? [];
   const displayedMine = mine.filter(
-    (task) => submissionFilter === 'all' || task.status === submissionFilter,
+    (task) =>
+      submissionFilter === 'all' ||
+      contributorStatus(task) === submissionFilter,
   );
   const intakeComplete = Boolean(
     state?.config.intakeFields.every((field) =>
@@ -1308,6 +1388,7 @@ export default function Workspace({
                             setQualityChecks({});
                             setConsentAccepted(false);
                             uploadIdentity.current = null;
+                            uploadedParts.current = {};
                           }}
                           disabled={busy}
                         >
@@ -1382,6 +1463,12 @@ export default function Workspace({
                         <strong>{state!.config.environment}</strong>
                       </div>
                     )}
+                    {state!.config.consent?.text && (
+                      <div>
+                        <span>Consent terms</span>
+                        <strong>{state!.config.consent.text}</strong>
+                      </div>
+                    )}
                   </div>
                   <p className="pre-wrap">{state!.config.requirements}</p>
                   <ul
@@ -1422,14 +1509,10 @@ export default function Workspace({
                     onChange={setSubmissionFilter}
                     options={[
                       { value: 'all', label: `All (${mine.length})` },
-                      { value: 'PROCESSING', label: 'Checking audio' },
-                      { value: 'QUICK_REVIEW', label: 'Quick Review' },
-                      { value: 'REJECTED', label: 'Retake requested' },
-                      { value: 'STT_PENDING', label: 'Awaiting transcript' },
-                      { value: 'STT_PROCESSING', label: 'Transcribing' },
-                      { value: 'STT_FAILED', label: 'Transcription failed' },
-                      { value: 'DEEP_REVIEW', label: 'Deep Review' },
-                      { value: 'READY_TO_DELIVER', label: 'Ready to deliver' },
+                      { value: 'pending_review', label: 'Pending review' },
+                      { value: 'needs_redo', label: 'Needs redo' },
+                      { value: 'approved', label: 'Approved' },
+                      { value: 'delivered', label: 'Delivered' },
                     ]}
                   />
                 </div>
@@ -1444,77 +1527,204 @@ export default function Workspace({
                     description="Choose another status to see your recordings."
                   />
                 ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Recording</TableHead>
-                        <TableHead>Submitted</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Feedback</TableHead>
-                        <TableHead>History</TableHead>
-                        <TableHead>Action</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {displayedMine.map((t) => (
-                        <TableRow key={t.id}>
-                          <TableCell>{t.name}</TableCell>
-                          <TableCell>
-                            {new Date(t.created).toLocaleDateString()}
-                          </TableCell>
-                          <TableCell>
-                            <Status task={t} />
-                          </TableCell>
-                          <TableCell>{t.quick?.note || '—'}</TableCell>
-                          <TableCell>
-                            {t.attempts?.length ? (
-                              <details className="attempt-history">
-                                <summary>
-                                  {t.attempts.length + 1} attempts
-                                </summary>
-                                {t.attempts.map((attempt, index) => (
-                                  <p key={`${attempt.audioKey}-${index}`}>
-                                    Attempt {index + 1} ·{' '}
-                                    {new Date(
-                                      attempt.submittedAt,
-                                    ).toLocaleDateString()}
-                                    {attempt.feedback
-                                      ? ` · ${attempt.feedback}`
-                                      : ''}
-                                  </p>
-                                ))}
-                              </details>
-                            ) : (
-                              'First attempt'
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            {t.status === 'REJECTED' ? (
+                  <>
+                    <div className="submission-mobile-list">
+                      {displayedMine.map((task) => (
+                        <article key={task.id}>
+                          <div>
+                            <strong>{task.name}</strong>
+                            <span>
+                              {new Date(task.created).toLocaleDateString()}
+                            </span>
+                          </div>
+                          <ContributorStatusBadge task={task} />
+                          {task.quick?.note && (
+                            <p>
+                              <strong>QA feedback:</strong> {task.quick.note}
+                            </p>
+                          )}
+                          <span className="helper">
+                            {(task.attempts?.length ?? 0) + 1} attempt
+                            {(task.attempts?.length ?? 0) ? 's' : ''}
+                          </span>
+                          <div className="submission-actions">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              disabled={busy}
+                              onClick={() => void loadRecording(task.id)}
+                            >
+                              View details
+                            </Button>
+                            {task.status === 'REJECTED' && (
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => {
-                                  setResubmitTaskId(t.id);
-                                  setFile(null);
-                                  setAnalysis(null);
-                                  setQualityChecks({});
-                                  setConsentAccepted(false);
-                                  uploadIdentity.current = null;
-                                  recordPanel.current?.scrollIntoView({
-                                    behavior: 'smooth',
-                                  });
-                                }}
+                                onClick={() => beginResubmission(task)}
                               >
-                                <RotateCcw /> Redo
+                                <RotateCcw /> Re-record and resubmit
                               </Button>
-                            ) : (
-                              <span className="helper">No action needed</span>
                             )}
-                          </TableCell>
-                        </TableRow>
+                          </div>
+                        </article>
                       ))}
-                    </TableBody>
-                  </Table>
+                    </div>
+                    <div className="submission-desktop-table">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Recording</TableHead>
+                            <TableHead>Submitted</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Feedback</TableHead>
+                            <TableHead>History</TableHead>
+                            <TableHead>Action</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {displayedMine.map((t) => (
+                            <TableRow key={t.id}>
+                              <TableCell>{t.name}</TableCell>
+                              <TableCell>
+                                {new Date(t.created).toLocaleDateString()}
+                              </TableCell>
+                              <TableCell>
+                                <ContributorStatusBadge task={t} />
+                              </TableCell>
+                              <TableCell>{t.quick?.note || '—'}</TableCell>
+                              <TableCell>
+                                {t.attempts?.length ? (
+                                  <details className="attempt-history">
+                                    <summary>
+                                      {t.attempts.length + 1} attempts
+                                    </summary>
+                                    {t.attempts.map((attempt, index) => (
+                                      <p key={`${attempt.audioKey}-${index}`}>
+                                        Attempt {index + 1} ·{' '}
+                                        {new Date(
+                                          attempt.submittedAt,
+                                        ).toLocaleDateString()}
+                                        {attempt.feedback
+                                          ? ` · ${attempt.feedback}`
+                                          : ''}
+                                      </p>
+                                    ))}
+                                  </details>
+                                ) : (
+                                  'First attempt'
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                <div className="submission-actions">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    disabled={busy}
+                                    onClick={() => void loadRecording(t.id)}
+                                  >
+                                    View details
+                                  </Button>
+                                  {t.status === 'REJECTED' && (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => beginResubmission(t)}
+                                    >
+                                      <RotateCcw /> Re-record and resubmit
+                                    </Button>
+                                  )}
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </>
+                )}
+                {selectedRecording && (
+                  <article
+                    className="recording-detail"
+                    aria-label="Recording details"
+                  >
+                    <div className="section-head">
+                      <div>
+                        <p className="eyebrow">SUBMISSION DETAIL</p>
+                        <h3>{selectedRecording.name}</h3>
+                      </div>
+                      <div className="actions">
+                        <ContributorStatusBadge task={selectedRecording} />
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setSelectedRecording(null)}
+                        >
+                          Close
+                        </Button>
+                      </div>
+                    </div>
+                    <Player
+                      src={`/api/workspace?audio=${selectedRecording.id}`}
+                    />
+                    <dl className="recording-facts">
+                      <div>
+                        <dt>Submitted</dt>
+                        <dd>
+                          {new Date(selectedRecording.created).toLocaleString()}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Duration</dt>
+                        <dd>
+                          {formatDuration(
+                            selectedRecording.durationSeconds ?? 0,
+                          )}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Format</dt>
+                        <dd>{audioFormatLabel(selectedRecording.mime)}</dd>
+                      </div>
+                      <div>
+                        <dt>QA feedback</dt>
+                        <dd>
+                          {selectedRecording.quick?.note || 'No feedback yet'}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Consent</dt>
+                        <dd>
+                          {selectedRecording.consent
+                            ? `Accepted · ${selectedRecording.consent.version}`
+                            : 'Not recorded'}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Attempts</dt>
+                        <dd>{(selectedRecording.attempts?.length ?? 0) + 1}</dd>
+                      </div>
+                    </dl>
+                    {Object.keys(selectedRecording.metadata ?? {}).length >
+                      0 && (
+                      <div className="submitted-metadata">
+                        <h4>Submitted project details</h4>
+                        <dl>
+                          {Object.entries(selectedRecording.metadata ?? {}).map(
+                            ([key, value]) => (
+                              <div key={key}>
+                                <dt>
+                                  {state!.config.intakeFields.find(
+                                    (field) => field.id === key,
+                                  )?.label ?? key}
+                                </dt>
+                                <dd>{String(value)}</dd>
+                              </div>
+                            ),
+                          )}
+                        </dl>
+                      </div>
+                    )}
+                  </article>
                 )}
               </section>
             </TabsContent>
@@ -2070,12 +2280,9 @@ async function uploadPartWithRetry(
         headers: { 'Content-Type': contentType },
         body: part,
       });
-      if (!response.ok) throw new Error(`Storage returned ${response.status}.`);
+      if (!response.ok) throw new Error('The secure upload was interrupted.');
       const etag = response.headers.get('etag')?.replace(/^"|"$/g, '');
-      if (!etag)
-        throw new Error(
-          'Storage did not return an upload receipt. The bucket must expose the ETag header.',
-        );
+      if (!etag) throw new Error('The secure upload could not be confirmed.');
       return etag;
     } catch (error) {
       lastError = error instanceof Error ? error.message : lastError;

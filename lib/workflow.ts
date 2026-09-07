@@ -1,4 +1,5 @@
 export type Role = 'contributor' | 'qa' | 'team_leader' | 'admin';
+export const MAX_RECORDINGS = 50_000;
 export type Actor = { id: string; email: string; role: Role };
 export type Status =
   | 'PROCESSING'
@@ -295,9 +296,9 @@ export function assertClaim(task: Task, actor: Actor, now: number) {
 }
 export function addTask(state: State, actor: Actor, task: Task, now: number) {
   requireRole(actor, ['contributor', 'admin']);
-  if (state.tasks.length >= 500)
+  if (state.tasks.length >= MAX_RECORDINGS)
     throw new WorkflowError(
-      'This pilot is limited to 500 recordings. Export and start a new workspace before adding more.',
+      'This workspace has reached its recording capacity. Contact the project administrator.',
     );
   if (state.tasks.some((t) => t.id === task.id))
     throw new WorkflowError('Recording already submitted.');

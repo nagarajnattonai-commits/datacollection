@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   initialState,
+  MAX_RECORDINGS,
   addTask,
   claimTasks,
   quickReview,
@@ -78,6 +79,9 @@ test('exclusive claims, owner checks and claim expiry', () => {
   assert.throws(() => quickReview(s, other, 'one', true, '', 2));
   assert.deepEqual(claimTasks(s, other, 'quick', 1, 900001), ['one']);
   assert.throws(() => quickReview(s, qa, 'one', true, '', 900002));
+});
+test('workspace capacity does not block the 1,500-contributor target', () => {
+  assert.ok(MAX_RECORDINGS >= 1_500);
 });
 test('a reviewer cannot claim their own contribution', () => {
   const s = initialState();

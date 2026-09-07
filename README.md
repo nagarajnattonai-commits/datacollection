@@ -61,7 +61,7 @@ If Supabase Auth is not configured, a trusted Sites identity remains available f
 
 Contributor requirements come from the server-owned project schema. The schema controls the brief, prompt or topic, language and locale, recording environment, duration, formats, target sample rate, bit depth, channel mode, consent copy, and dynamic intake fields. The page skips optional brief rows that have no value.
 
-The contributor APIs are:
+The contributor APIs are available at the exact document-defined paths below. Compatibility aliases under `/api` remain available for older clients.
 
 ```text
 GET  /api/projects/:id/schema
@@ -74,6 +74,8 @@ POST /api/recordings/:id/resubmit
 
 Production uploads use short-lived, multipart R2 upload URLs. Audio travels from the browser to private object storage rather than through the application server. Each request has a contributor-scoped idempotency key, size/type/duration limits are repeated on the server, and completion verifies every expected part and the final object size. The background worker validates the stored file signature and checksum before the recording enters Quick Review. Upload sessions, processing jobs and contributor list/detail reads can be resumed safely after ordinary connection failures.
 
+The browser retains completed multipart receipts while the page is open. If a connection drops near the end, submitting again reuses the same upload session and sends only unfinished parts. Contributor-facing status is intentionally limited to **Pending review**, **Needs redo**, **Approved**, and **Delivered**; internal transcription and review stages are not exposed as contributor work.
+
 Set the four `R2_*` values shown in `.env.example` with an R2 S3 API token that can write only the audio bucket. Configure the bucket CORS policy to allow the website origin to send `PUT` with `Content-Type` and expose the `ETag` response header. Keep the bucket private. Local demo mode keeps the smaller application upload path so the complete workflow can be tested without cloud credentials.
 
 ## Implementation and deliberate MVP limits
@@ -82,7 +84,7 @@ Set the four `R2_*` values shown in `.env.example` with an R2 S3 API token that 
 - Supabase PostgreSQL for hosted metadata, R2 for private audio, and a separate polling transcription worker. Local development falls back to D1 when Supabase is not configured.
 - The workspace is saved as a revisioned PostgreSQL JSONB document with secured relational operational views. A PostgreSQL compare-and-swap function atomically commits each entire workflow transition; conflicting requests re-read and re-check eligibility. This prevents duplicate claims, duplicate round submissions, and lost updates.
 - Original transcripts, per-round edits, Quick Review feedback, checksums and audit events are retained. A round's eligible task set is fixed when opened.
-- One project/workspace per deployment; a maximum of 500 active recording tasks. Direct object-storage uploads remove audio bandwidth from application workers, but the revisioned JSONB aggregate remains a pilot persistence model. Production concurrency of 500–1,500 users still needs environment-specific load testing and a move to independently writable normalized task/upload tables.
+- One project/workspace per deployment. The application-level capacity is 50,000 recording tasks, so the earlier 500-recording pilot ceiling no longer blocks the contributor target. Direct object-storage uploads remove audio bandwidth from application workers, but the revisioned JSONB aggregate remains a pilot persistence model. Production upload concurrency still needs environment-specific testing and a move to independently writable normalized task/upload tables.
 - The browser measures decoded duration and sound energy before submission and shows the decoded sample rate when available. The worker verifies the stored object's size, container signature and SHA-256 checksum. Target bit depth and channel mode are project guidance; a full production media probe and malware scan remain deployment work. Delivery is a JSON manifest plus separate protected audio downloads, not a ZIP package.
 - A team activity log and queue counts are included. Daily targets, Slack alerts, payments, marketplace features and advanced analytics are deferred.
 - Before a larger rollout: move high-volume writes from the JSONB aggregate to independently writable normalized tables, move queues and cross-instance rate limits to BullMQ/Redis, and complete backup/restore, observability, load and dependency-security reviews.

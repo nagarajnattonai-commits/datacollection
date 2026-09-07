@@ -1,9 +1,9 @@
 import { actorFor } from '@/lib/auth';
 import { apiJson, enforceRateLimit, requestId } from '@/lib/api';
-import { cachedProjectSchema } from '@/lib/project-schema';
+import { cachedProjectAccess } from '@/lib/project-schema';
 import { directUploadConfigured } from '@/lib/recording-upload';
 import { readState } from '@/lib/store';
-import { WorkflowError } from '@/lib/workflow';
+import { initialState, WorkflowError } from '@/lib/workflow';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,16 +15,21 @@ export async function GET(
   try {
     enforceRateLimit(request, 'project-schema', 180);
     const projectId = (await context.params).id;
-    const { state } = await readState();
-    await actorFor(request, state);
-    if (projectId !== state.config.id)
+    const access = await cachedProjectAccess(projectId, async () => {
+      const { state } = await readState();
+      return { schema: state.config, members: state.members };
+    });
+    const authState = initialState();
+    authState.config = access.schema;
+    authState.members = access.members;
+    await actorFor(request, authState);
+    if (projectId !== access.schema.id)
       throw new WorkflowError('Project requirements were not found.', 404);
-    const schema = await cachedProjectSchema(
-      projectId,
-      async () => state.config,
-    );
     return apiJson(
-      { schema, directUploadConfigured: directUploadConfigured() },
+      {
+        schema: access.schema,
+        directUploadConfigured: directUploadConfigured(),
+      },
       200,
       id,
     );

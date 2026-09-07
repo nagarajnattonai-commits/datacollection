@@ -730,6 +730,74 @@ label {
   color: #667268;
   font-size: 13px;
 }
+.submission-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.submission-mobile-list {
+  display: none;
+}
+.contributor-status-pending_review {
+  background: #fbf1d9;
+  color: #765d24;
+}
+.contributor-status-needs_redo {
+  background: #faeae4;
+  color: #914437;
+}
+.contributor-status-approved {
+  background: #e5ede1;
+  color: #3b6342;
+}
+.contributor-status-delivered {
+  background: #dff0dc;
+  color: #2f693c;
+}
+.recording-detail {
+  margin-top: 24px;
+  padding: 22px;
+  border: 1px solid #cbd8c7;
+  border-radius: 12px;
+  background: #f8faf5;
+}
+.recording-detail h3 {
+  margin: 3px 0 0;
+}
+.recording-facts,
+.submitted-metadata dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 18px 0 0;
+}
+.recording-facts > div,
+.submitted-metadata dl > div {
+  padding: 13px;
+  border-radius: 8px;
+  background: #fff;
+}
+.recording-facts dt,
+.submitted-metadata dt {
+  color: #687568;
+  font-size: 13px;
+}
+.recording-facts dd,
+.submitted-metadata dd {
+  margin: 4px 0 0;
+  color: #26392e;
+  font-size: 14px;
+  font-weight: 600;
+  word-break: break-word;
+}
+.submitted-metadata {
+  margin-top: 22px;
+  padding-top: 20px;
+  border-top: 1px solid #d7e0d3;
+}
+.submitted-metadata h4 {
+  margin: 0;
+}
 .quality-tips {
   list-style: none;
   padding: 0;
@@ -1060,7 +1128,9 @@ footer {
     gap: 0;
   }
   .intake-grid,
-  .check-grid {
+  .check-grid,
+  .recording-facts,
+  .submitted-metadata dl {
     grid-template-columns: 1fr;
   }
   .retake-banner {
@@ -1082,6 +1152,31 @@ footer {
   }
   .panel {
     padding: 20px;
+  }
+  .submission-desktop-table {
+    display: none;
+  }
+  .submission-mobile-list {
+    display: grid;
+    gap: 12px;
+  }
+  .submission-mobile-list article {
+    display: grid;
+    gap: 12px;
+    padding: 16px;
+    border: 1px solid #d4ddd0;
+    border-radius: 10px;
+    background: #fafbf8;
+  }
+  .submission-mobile-list article > div:first-child {
+    display: grid;
+    gap: 3px;
+  }
+  .submission-mobile-list article > div:first-child span,
+  .submission-mobile-list p {
+    color: #687568;
+    font-size: 14px;
+    margin: 0;
   }
   footer {
     flex-direction: column;

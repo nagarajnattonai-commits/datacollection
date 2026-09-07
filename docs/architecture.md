@@ -29,7 +29,7 @@ The test-ready backend remains a modular monolith, matching the supplied recomme
 | PostgreSQL and Prisma         | Supabase PostgreSQL JSONB source of truth, atomic SQL compare-and-swap, migrations and secured relational views | Move high-volume entity writes into normalized PostgreSQL tables before the 1,000-user rollout |
 | Redis and BullMQ              | Durable job state, leases, retry delay and an independently running worker                                      | Move jobs and cross-instance rate limits to managed Redis and BullMQ                           |
 | S3-compatible storage         | Private R2 object storage with checksums and protected retrieval                                                | Use direct signed uploads when file volume requires it                                         |
-| JWT or session auth with RBAC | Supabase sessions with server-side Contributor, QA, Team Leader and Administrator checks                        | Administrator controls access; Team Leader controls project operations                          |
+| JWT or session auth with RBAC | Supabase sessions with server-side Contributor, QA, Team Leader and Administrator checks                        | Administrator controls access; Team Leader controls project operations                         |
 | Sentry and structured logs    | Request IDs, JSON job/action logs, health checks and protected operational metrics                              | Connect logs and errors to the selected monitoring provider                                    |
 
 The backend also enforces the complete contributor audio-quality confirmation set. A client cannot bypass the checklist by calling the upload endpoint directly. The confirmed criteria and criteria version are retained with each new task and included in final delivery records.
@@ -48,7 +48,7 @@ Write APIs use same-origin checks, bounded request sizes, validated input, role 
 
 Each operation reads `(body, revision)`, applies a pure transition to that snapshot, then updates only if the revision still matches. A failed conditional update restarts the operation against current state, up to twelve attempts. Reads never overwrite concurrent work. Audio uploads are stored first; failed metadata writes trigger best-effort object cleanup. A process crash between object write and metadata commit can leave an orphan object; periodic reconciliation is a future production requirement.
 
-The aggregate keeps this pilot easy to inspect and makes cross-task round closure atomic. Supabase stores it as JSONB and exposes secured relational views for operational queries. It intentionally limits each workspace to 500 recordings. Before heavy or long-running use, split users, tasks, reviews, rounds and jobs into independently writable normalized PostgreSQL tables while keeping the transition invariants inside database transactions.
+The aggregate keeps this pilot easy to inspect and makes cross-task round closure atomic. Supabase stores it as JSONB and exposes secured relational views for operational queries. The application allows up to 50,000 tasks, while a production concurrency rollout should split users, tasks, reviews, rounds and jobs into independently writable normalized PostgreSQL tables and keep transition invariants inside database transactions.
 
 ## STT safety
 

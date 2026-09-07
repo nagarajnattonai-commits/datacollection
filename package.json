@@ -14,6 +14,7 @@
     "db:generate": "drizzle-kit generate",
     "test": "node --experimental-transform-types --test tests/*.test.ts",
     "test:backend": "node tests/backend-smoke.mjs",
+    "test:contributor-load": "node tests/contributor-load.mjs",
     "typecheck": "tsc --noEmit",
     "worker": "node --env-file-if-exists=.env.worker scripts/worker.mjs",
     "db:local": "wrangler d1 migrations apply DB --local --config wrangler.local.json"

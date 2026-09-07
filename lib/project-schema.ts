@@ -2,10 +2,21 @@ import type {
   FlexibleMetadata,
   IntakeField,
   ProjectConfig,
+  Role,
 } from './workflow.ts';
 import { WorkflowError } from './workflow.ts';
 
 const cache = new Map<string, { expires: number; value: ProjectConfig }>();
+const accessCache = new Map<
+  string,
+  {
+    expires: number;
+    value: {
+      schema: ProjectConfig;
+      members: { email: string; role: Role }[];
+    };
+  }
+>();
 
 export async function cachedProjectSchema(
   projectId: string,
@@ -26,8 +37,34 @@ export async function cachedProjectSchema(
 }
 
 export function clearProjectSchemaCache(projectId?: string) {
-  if (projectId) cache.delete(projectId);
-  else cache.clear();
+  if (projectId) {
+    cache.delete(projectId);
+    accessCache.delete(projectId);
+  } else {
+    cache.clear();
+    accessCache.clear();
+  }
+}
+
+export async function cachedProjectAccess(
+  projectId: string,
+  loader: () => Promise<{
+    schema: ProjectConfig;
+    members: { email: string; role: Role }[];
+  }>,
+  now = Date.now(),
+) {
+  const cached = accessCache.get(projectId);
+  if (cached && cached.expires > now) return structuredClone(cached.value);
+  const value = await loader();
+  accessCache.set(projectId, {
+    expires: now + 30_000,
+    value: structuredClone(value),
+  });
+  if (accessCache.size > 100)
+    for (const [key, entry] of accessCache)
+      if (entry.expires <= now) accessCache.delete(key);
+  return value;
 }
 
 export function validateIntakeAnswers(

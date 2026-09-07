@@ -1,5 +1,6 @@
 import { env } from 'cloudflare:workers';
 import { actorFor } from './auth.ts';
+import { enforceRateLimit } from './api.ts';
 import {
   audioCriteriaVersion,
   validateAudioCriteria,
@@ -12,6 +13,7 @@ import {
 import { mutate, readState } from './store.ts';
 import {
   findTask,
+  MAX_RECORDINGS,
   WorkflowError,
   type Actor,
   type State,
@@ -47,6 +49,7 @@ export async function issueRecordingUpload(
   const { state } = await readState();
   const actor = await actorFor(request, state);
   assertContributor(actor);
+  enforceRateLimit(request, `recording-upload:${actor.id}`, 30, 60 * 60_000);
   validateUploadAgainstProject(state, actor, input, resubmitTaskId);
   const existingTask = state.tasks.find(
     (task) =>
@@ -129,6 +132,7 @@ export async function completeRecordingUpload(request: Request) {
   const { state } = await readState();
   const actor = await actorFor(request, state);
   assertContributor(actor);
+  enforceRateLimit(request, `recording-complete:${actor.id}`, 30, 60 * 60_000);
   const alreadySubmitted = state.tasks.find(
     (task) =>
       task.contributor === actor.id && task.idempotencyKey === idempotencyKey,
@@ -171,6 +175,7 @@ export async function completeRecordingUpload(request: Request) {
     try {
       object = await multipart.complete(parts);
     } catch {
+      await countUploadFailure();
       throw new WorkflowError(
         'Some upload parts are missing. Retry the upload and submit again.',
         409,
@@ -179,6 +184,7 @@ export async function completeRecordingUpload(request: Request) {
   }
   if (object.size !== session.bytes) {
     await env.FILES.delete(session.key);
+    await countUploadFailure();
     throw new WorkflowError(
       'The uploaded file was incomplete. Please upload it again.',
       400,
@@ -228,8 +234,10 @@ export async function completeRecordingUpload(request: Request) {
         attempts: existing.attempts,
       });
     } else {
-      if (current.tasks.length >= 500)
-        throw new WorkflowError('This pilot has reached its recording limit.');
+      if (current.tasks.length >= MAX_RECORDINGS)
+        throw new WorkflowError(
+          'This workspace has reached its recording capacity.',
+        );
       current.tasks.push(base);
     }
     current.uploads = current.uploads.filter(
@@ -409,6 +417,12 @@ function directUploadConfig() {
       503,
     );
   }
+}
+
+async function countUploadFailure() {
+  await mutate((state) => {
+    state.uploadMetrics.failed += 1;
+  }).catch(() => {});
 }
 
 function text(value: unknown, max: number) {

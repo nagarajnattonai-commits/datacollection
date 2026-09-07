@@ -5,6 +5,19 @@ import { WorkflowError, type Status } from '@/lib/workflow';
 
 export const dynamic = 'force-dynamic';
 
+const contributorStatuses: Record<string, Status[]> = {
+  pending_review: ['PROCESSING', 'QUICK_REVIEW'],
+  needs_redo: ['REJECTED'],
+  approved: ['STT_PENDING', 'STT_PROCESSING', 'STT_FAILED', 'DEEP_REVIEW'],
+  delivered: ['READY_TO_DELIVER'],
+};
+
+function contributorStatus(status: Status) {
+  return Object.entries(contributorStatuses).find(([, values]) =>
+    values.includes(status),
+  )?.[0];
+}
+
 export async function GET(request: Request) {
   const id = requestId(request);
   try {
@@ -24,13 +37,24 @@ export async function GET(request: Request) {
       'DEEP_REVIEW',
       'READY_TO_DELIVER',
     ]);
-    if (requestedStatus && !statuses.has(requestedStatus as Status))
+    if (
+      requestedStatus &&
+      !statuses.has(requestedStatus as Status) &&
+      !(requestedStatus in contributorStatuses)
+    )
       throw new WorkflowError('Choose a valid recording status.', 400);
-    const recordings = state.tasks.filter(
-      (task) =>
-        task.contributor === actor.id &&
-        (!requestedStatus || task.status === requestedStatus),
-    );
+    const recordings = state.tasks
+      .filter(
+        (task) =>
+          task.contributor === actor.id &&
+          (!requestedStatus ||
+            task.status === requestedStatus ||
+            contributorStatuses[requestedStatus]?.includes(task.status)),
+      )
+      .map((task) => ({
+        ...task,
+        contributorStatus: contributorStatus(task.status),
+      }));
     return apiJson({ recordings }, 200, id);
   } catch (error) {
     if (error instanceof WorkflowError)

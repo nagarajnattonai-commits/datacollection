@@ -25,7 +25,7 @@ const leaderWorkspace = await fetch(`${base}/api/workspace`, {
 });
 assert.equal(leaderWorkspace.status, 200);
 assert.equal((await leaderWorkspace.json()).actor.role, 'team_leader');
-const projectSchema = await fetch(`${base}/api/projects/main/schema`, {
+const projectSchema = await fetch(`${base}/projects/main/schema`, {
   headers: { 'x-demo-role': 'contributor' },
 });
 assert.equal(projectSchema.status, 200);
@@ -34,11 +34,28 @@ assert.equal(schemaBody.schema.id, 'main');
 assert.ok(Array.isArray(schemaBody.schema.intakeFields));
 assert.equal(typeof schemaBody.directUploadConfigured, 'boolean');
 const contributorRecordings = await fetch(
-  `${base}/api/contributors/me/recordings`,
+  `${base}/contributors/me/recordings?status=pending_review`,
   { headers: { 'x-demo-role': 'contributor' } },
 );
 assert.equal(contributorRecordings.status, 200);
 assert.ok(Array.isArray((await contributorRecordings.json()).recordings));
+const uploadStart = await fetch(`${base}/recordings/upload-url`, {
+  method: 'POST',
+  headers: {
+    'content-type': 'application/json',
+    origin: base,
+    'x-demo-role': 'contributor',
+  },
+  body: JSON.stringify({
+    projectId: 'main',
+    name: 'readiness.wav',
+    mime: 'audio/wav',
+    bytes: 4096,
+    durationSeconds: 10,
+    idempotencyKey: 'readiness-upload-0001',
+  }),
+});
+assert.equal(uploadStart.status, 503);
 const leaderAccessChange = await fetch(`${base}/api/workspace`, {
   method: 'POST',
   headers: {

@@ -9,6 +9,8 @@ This plan verifies the MVP described in the supplied architecture, system design
 3. Run `npm run test:backend` to verify database and object-storage health, protected metrics and Contributor denial for Administrator metrics.
 4. Run `npm run build` to verify the complete server and website production bundle.
 
+With the local website running, `npm run test:contributor-load` exercises the schema and submissions read path with 500 virtual contributor sessions in batches. Set `VIRTUAL_USERS=1500` to run the document's current upper bound. This is a local API saturation check; the final production gate must run against an approved staging deployment with Supabase, private R2 direct uploads, realistic audio sizes and authenticated test accounts.
+
 The full `tests/api-smoke.mjs` scenario creates a labelled silent recording and exercises real local persistence. Run it only against a fresh local database; it refuses to run when recordings already exist.
 
 ## Manual role workflow

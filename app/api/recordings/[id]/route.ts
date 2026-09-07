@@ -17,7 +17,15 @@ export async function GET(
     const task = findTask(state, (await context.params).id);
     if (actor.role === 'contributor' && task.contributor !== actor.id)
       throw new WorkflowError('Recording access denied.', 403);
-    return apiJson({ recording: task }, 200, traceId);
+    const contributorStatus =
+      task.status === 'REJECTED'
+        ? 'needs_redo'
+        : task.status === 'READY_TO_DELIVER'
+          ? 'delivered'
+          : ['PROCESSING', 'QUICK_REVIEW'].includes(task.status)
+            ? 'pending_review'
+            : 'approved';
+    return apiJson({ recording: { ...task, contributorStatus } }, 200, traceId);
   } catch (error) {
     if (error instanceof WorkflowError)
       return apiJson({ error: error.message }, error.status, traceId);
