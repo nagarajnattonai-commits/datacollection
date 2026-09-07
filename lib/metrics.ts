@@ -4,6 +4,7 @@ export function workspaceMetrics(state: State, now = Date.now()) {
   const statusCounts = Object.fromEntries(
     (
       [
+        'PROCESSING',
         'QUICK_REVIEW',
         'REJECTED',
         'STT_PENDING',
@@ -58,8 +59,20 @@ export function workspaceMetrics(state: State, now = Date.now()) {
       expiredClaims,
       transcriptionBacklog:
         statusCounts.STT_PENDING + statusCounts.STT_PROCESSING,
+      postProcessingQueue: statusCounts.PROCESSING,
       failedTranscriptions: statusCounts.STT_FAILED,
       readyToDeliver: statusCounts.READY_TO_DELIVER,
+    },
+    uploads: {
+      active: state.uploads.filter((upload) => upload.expires > now).length,
+      success: state.uploadMetrics.completed,
+      failed: state.uploadMetrics.failed,
+      averageMilliseconds: state.uploadMetrics.completed
+        ? Math.round(
+            state.uploadMetrics.totalUploadMilliseconds /
+              state.uploadMetrics.completed,
+          )
+        : 0,
     },
     round: openRound
       ? {

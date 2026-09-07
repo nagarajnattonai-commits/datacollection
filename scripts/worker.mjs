@@ -5,7 +5,10 @@ if (!origin || !secret)
   throw new Error(
     'Set APP_URL and WORKER_SECRET before starting the transcription worker.',
   );
-const url = new URL('/api/jobs', origin);
+const jobs = [
+  new URL('/api/jobs/recordings', origin),
+  new URL('/api/jobs', origin),
+];
 if (
   url.protocol !== 'https:' &&
   !['localhost', '127.0.0.1'].includes(url.hostname)
@@ -20,19 +23,21 @@ process.on('SIGTERM', () => {
 });
 while (running) {
   try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${secret}` },
-      signal: AbortSignal.timeout(150000),
-    });
-    if (!response.ok)
-      console.error(`Worker request failed: ${response.status}`);
-    else {
-      const result = await response.json();
-      if (result.taskId)
-        console.log(
-          `Task ${result.taskId}: ${result.success ? 'transcribed' : 'retry scheduled or failed'}`,
-        );
+    for (const url of jobs) {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${secret}` },
+        signal: AbortSignal.timeout(150000),
+      });
+      if (!response.ok)
+        console.error(`${url.pathname} failed: ${response.status}`);
+      else {
+        const result = await response.json();
+        if (result.taskId)
+          console.log(
+            `Task ${result.taskId}: ${result.success ? 'completed' : 'retry scheduled or failed'}`,
+          );
+      }
     }
   } catch (error) {
     console.error('Worker could not reach the application:', error.message);

@@ -12,3 +12,8 @@ SUPABASE_URL=
 SUPABASE_PUBLISHABLE_KEY=
 SUPABASE_SECRET_KEY=
 SUPABASE_WORKSPACE_ID=main
+# Production direct-to-R2 multipart uploads. Leave blank for local demo uploads.
+R2_ACCOUNT_ID=
+R2_BUCKET_NAME=
+R2_ACCESS_KEY_ID=
+R2_SECRET_ACCESS_KEY=

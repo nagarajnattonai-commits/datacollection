@@ -13,14 +13,12 @@ The full `tests/api-smoke.mjs` scenario creates a labelled silent recording and 
 
 ## Manual role workflow
 
-1. Open `/login/contributor`. Record or upload supported audio, play it back, confirm all six quality checks and submit it.
-2. Confirm that a Contributor cannot open Administrator metrics or review another person's recording.
-3. Open `/login/qa`. Claim a Quick Review batch, listen, then approve or request a retake. A retake requires feedback.
-4. Open `/login/team-leader` to import a real transcript, coordinate review rounds, update project settings, and prepare delivery. Use `/login/admin` for team access changes and administrator-only system metrics.
-5. Open a Deep Review round. As QA, claim each eligible task, view previous edits, make any needed correction and submit once.
-6. Confirm that the Administrator cannot close an incomplete round. Finish all tasks and close it.
-7. Repeat until one task receives three consecutive rounds without edits. Confirm it moves to Ready to Deliver and no longer appears in later rounds.
-8. Export delivery records and retrieve the protected audio. Confirm the record includes checksum, original transcript, edit history and audio-quality confirmations.
+1. Open `/login/contributor`. Confirm the configured project brief, prompt, technical limits and environment are visible. Record or upload supported audio and verify that invalid format, out-of-range duration and silent audio are stopped before submission.
+2. Play the accepted recording, complete every required dynamic intake field and quality check, and accept the versioned consent. Confirm the submit button remains unavailable while a required item is missing.
+3. Submit the recording. With production R2 credentials, confirm multipart upload progress is visible, audio goes directly to R2, and the item first shows **Checking audio** before reaching **Quick Review** after the worker runs. In local demo mode it enters Quick Review immediately.
+4. Request a retake in Quick Review, return to the Contributor portal, select **Redo**, and submit a replacement. Confirm the task retains its identity and displays the previous attempt and feedback.
+5. Confirm that a Contributor cannot open Administrator metrics or review another person's recording.
+6. Continue through QA, transcription, Deep Review and delivery as described in the main README.
 
 ## Operational checks
 
@@ -28,7 +26,9 @@ The full `tests/api-smoke.mjs` scenario creates a labelled silent recording and 
 - An Administrator can read `/api/metrics`; Contributor and QA accounts receive an access error.
 - Repeated excess API requests receive HTTP 429.
 - `/api/jobs` rejects requests without the worker secret.
+- `/api/jobs/recordings` rejects requests without the worker secret and accepts only one active lease for each stored recording.
+- A repeated upload idempotency key does not create a second task. An expired upload session cannot be completed.
 - Invalid formats, files over 20 MB, missing quality confirmations, malformed locale codes and oversized transcripts are rejected.
 - A lost worker lease cannot overwrite a transcript completed by a later lease.
 
-Hardware microphone permissions and live paid transcription need manual testing on the intended browsers and devices. The current hosted access policy also applies before application-level roles, so each tester must be invited to the Site and added to the Fieldnote team with the same email.
+Hardware microphone permissions, live R2 CORS behavior and paid transcription need manual testing on the intended browsers and devices. Run a production-like load test only in a dedicated Supabase/R2 environment; local concurrency results do not establish the 500–1,500 contributor target. The current hosted access policy also applies before application-level roles, so each tester must be invited to the Site and added to the Fieldnote team with the same email.

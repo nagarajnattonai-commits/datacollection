@@ -25,6 +25,20 @@ const leaderWorkspace = await fetch(`${base}/api/workspace`, {
 });
 assert.equal(leaderWorkspace.status, 200);
 assert.equal((await leaderWorkspace.json()).actor.role, 'team_leader');
+const projectSchema = await fetch(`${base}/api/projects/main/schema`, {
+  headers: { 'x-demo-role': 'contributor' },
+});
+assert.equal(projectSchema.status, 200);
+const schemaBody = await projectSchema.json();
+assert.equal(schemaBody.schema.id, 'main');
+assert.ok(Array.isArray(schemaBody.schema.intakeFields));
+assert.equal(typeof schemaBody.directUploadConfigured, 'boolean');
+const contributorRecordings = await fetch(
+  `${base}/api/contributors/me/recordings`,
+  { headers: { 'x-demo-role': 'contributor' } },
+);
+assert.equal(contributorRecordings.status, 200);
+assert.ok(Array.isArray((await contributorRecordings.json()).recordings));
 const leaderAccessChange = await fetch(`${base}/api/workspace`, {
   method: 'POST',
   headers: {
@@ -47,7 +61,9 @@ const body = await metrics.json();
 assert.equal(typeof body.tasks.total, 'number');
 assert.equal(typeof body.tasks.transcriptionBacklog, 'number');
 assert.equal(typeof body.team.total, 'number');
+assert.equal(typeof body.tasks.postProcessingQueue, 'number');
+assert.equal(typeof body.uploads.active, 'number');
 
 console.log(
-  'Backend health, storage checks, administrator metrics and Team Leader access boundaries passed. No workspace data changed.',
+  'Backend health, contributor schema and recording APIs, storage checks, administrator metrics and Team Leader access boundaries passed. No workspace data changed.',
 );

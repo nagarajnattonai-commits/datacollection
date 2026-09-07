@@ -14,6 +14,12 @@ import {
   logRequest,
   requestId,
 } from '@/lib/api';
+import { directUploadConfigured } from '@/lib/recording-upload';
+import {
+  clearProjectSchemaCache,
+  validateIntakeAnswers,
+  validateProjectConfig,
+} from '@/lib/project-schema';
 export const dynamic = 'force-dynamic';
 function fail(error: unknown, id: string) {
   if (error instanceof w.WorkflowError)
@@ -74,6 +80,10 @@ export async function GET(request: Request) {
           noEditStreak: t.streak,
           sha256: t.checksum,
           audioQuality: t.quality ?? null,
+          durationSeconds: t.durationSeconds ?? null,
+          intakeMetadata: t.metadata ?? {},
+          consent: t.consent ?? null,
+          previousAttempts: t.attempts ?? [],
           audioPath: `/api/workspace?audio=${encodeURIComponent(t.id)}`,
           reviews: t.reviews,
         }));
@@ -103,6 +113,9 @@ export async function GET(request: Request) {
             ...state,
             tasks: state.tasks.filter((t) => t.contributor === actor.id),
             members: [],
+            uploads: state.uploads.filter(
+              (upload) => upload.contributor === actor.id,
+            ),
             audit: state.audit.filter((a) => a.actor === actor.email),
             rounds: [],
           }
@@ -113,6 +126,7 @@ export async function GET(request: Request) {
         actor,
         demo: localDemo(request),
         automaticSttConfigured: !!env.OPENAI_API_KEY,
+        directUploadConfigured: directUploadConfigured(),
       },
       200,
       traceId,
@@ -134,31 +148,84 @@ export async function POST(request: Request) {
           'Only contributors can submit recordings.',
           403,
         );
+      if (!localDemo(request))
+        throw new w.WorkflowError(
+          'Use the secure direct upload flow for this recording.',
+          400,
+        );
       if (Number(request.headers.get('content-length')) > 21 * 1024 * 1024)
         throw new w.WorkflowError('Maximum upload size is 20 MB.', 413);
       const form = await request.formData();
       const file = form.get('audio');
       const confirmed = validateAudioCriteria(form.get('qualityChecks'));
+      const durationSeconds = Number(form.get('durationSeconds'));
+      const consentAccepted = form.get('consentAccepted') === 'true';
+      const resubmitTaskId = form.get('resubmitTaskId');
+      let rawMetadata: unknown;
+      try {
+        const metadataValue = form.get('metadata');
+        if (metadataValue !== null && typeof metadataValue !== 'string')
+          throw new Error('Invalid metadata.');
+        rawMetadata = JSON.parse(metadataValue ?? '{}');
+      } catch {
+        throw new w.WorkflowError('Complete the project questions.', 400);
+      }
+      const metadata = validateIntakeAnswers(
+        state.config.intakeFields,
+        rawMetadata,
+      );
       if (
         !(file instanceof File) ||
         file.size === 0 ||
-        file.size > 20 * 1024 * 1024
+        file.size > state.config.technical.maxBytes
       )
-        throw new w.WorkflowError('Choose an audio file up to 20 MB.', 400);
+        throw new w.WorkflowError(
+          'Choose an audio file within the project limit.',
+          400,
+        );
       if (!confirmed.length)
         throw new w.WorkflowError(
           'Confirm every audio quality check before submitting.',
           400,
         );
+      if (
+        !Number.isFinite(durationSeconds) ||
+        durationSeconds < state.config.technical.minDurationSeconds ||
+        durationSeconds > state.config.technical.maxDurationSeconds
+      )
+        throw new w.WorkflowError(
+          'The recording length is outside the project range.',
+          400,
+        );
+      if (state.config.consent?.required && !consentAccepted)
+        throw new w.WorkflowError(
+          'Accept the project consent before submitting.',
+          400,
+        );
+      if (resubmitTaskId && typeof resubmitTaskId !== 'string')
+        throw new w.WorkflowError('This recording cannot be resubmitted.', 400);
+      if (resubmitTaskId) {
+        const previous = w.findTask(state, resubmitTaskId);
+        if (previous.contributor !== actor.id || previous.status !== 'REJECTED')
+          throw new w.WorkflowError(
+            'This recording cannot be resubmitted.',
+            409,
+          );
+      }
       const bytes = new Uint8Array(await file.arrayBuffer());
       const mime = sniffAudio(bytes);
+      if (!state.config.technical.formats.includes(mime))
+        throw new w.WorkflowError(
+          'Choose one of the project’s accepted audio formats.',
+          400,
+        );
       const checksum = Array.from(
         new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)),
       )
         .map((b) => b.toString(16).padStart(2, '0'))
         .join('');
-      const taskId = crypto.randomUUID(),
-        audioKey = `audio/${taskId}`;
+      const taskId = resubmitTaskId || crypto.randomUUID(),
+        audioKey = `audio/${taskId}/${crypto.randomUUID()}`;
       await env.FILES.put(audioKey, bytes, {
         httpMetadata: { contentType: mime },
       });
@@ -173,6 +240,18 @@ export async function POST(request: Request) {
             mime,
             bytes: file.size,
             checksum,
+            projectId: s.config.id,
+            durationSeconds,
+            metadata,
+            consent:
+              consentAccepted && s.config.consent
+                ? {
+                    version: s.config.consent.version,
+                    text: s.config.consent.text,
+                    accepted: true,
+                    acceptedAt: Date.now(),
+                  }
+                : undefined,
             quality: {
               criteriaVersion: audioCriteriaVersion,
               confirmed,
@@ -187,7 +266,35 @@ export async function POST(request: Request) {
             reviews: [],
             job: { attempts: 0, nextAttempt: 0 },
           };
-          w.addTask(s, actor, task, Date.now());
+          if (resubmitTaskId) {
+            const previous = w.findTask(s, resubmitTaskId);
+            if (
+              previous.contributor !== actor.id ||
+              previous.status !== 'REJECTED'
+            )
+              throw new w.WorkflowError(
+                'This recording cannot be resubmitted.',
+                409,
+              );
+            const attempts = previous.attempts ?? [];
+            attempts.push({
+              audioKey: previous.audioKey,
+              name: previous.name,
+              mime: previous.mime,
+              bytes: previous.bytes,
+              checksum: previous.checksum,
+              durationSeconds: previous.durationSeconds,
+              submittedAt: previous.created,
+              feedback: previous.quick?.note,
+            });
+            Object.assign(previous, task, {
+              id: previous.id,
+              attempts,
+            });
+            w.audit(s, actor, 'Recording resubmitted', Date.now(), previous.id);
+          } else {
+            w.addTask(s, actor, task, Date.now());
+          }
         });
       } catch (error) {
         await env.FILES.delete(audioKey);
@@ -266,6 +373,7 @@ export async function POST(request: Request) {
             400,
           );
         s.config = {
+          ...s.config,
           name,
           language,
           locale,
@@ -273,7 +381,19 @@ export async function POST(request: Request) {
           vocabulary: str(data.vocabulary ?? '', 2000),
           provider: data.provider,
         };
+        clearProjectSchemaCache(s.config.id);
         w.audit(s, actor, 'Project settings updated', now);
+        return;
+      }
+      if (action === 'projectSchema') {
+        if (actor.role !== 'admin')
+          throw new w.WorkflowError(
+            'Only administrators can replace project requirements.',
+            403,
+          );
+        s.config = validateProjectConfig(data.schema);
+        clearProjectSchemaCache(s.config.id);
+        w.audit(s, actor, 'Project requirement schema updated', now);
         return;
       }
       if (action === 'member') {

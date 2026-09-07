@@ -1,5 +1,10 @@
 import { env } from 'cloudflare:workers';
-import { initialState, WorkflowError, type State } from './workflow';
+import {
+  initialState,
+  normalizeState,
+  WorkflowError,
+  type State,
+} from './workflow';
 import {
   parseSupabaseStoreConfig,
   SupabaseWorkspaceStore,
@@ -18,7 +23,10 @@ export function db() {
 }
 export async function readState(): Promise<{ state: State; revision: number }> {
   const postgres = supabaseStore();
-  if (postgres) return postgres.read();
+  if (postgres) {
+    const row = await postgres.read();
+    return { ...row, state: normalizeState(row.state) };
+  }
   await db()
     .prepare(
       'INSERT OR IGNORE INTO workspace (id, revision, body) VALUES (?, 0, ?)',
@@ -30,7 +38,10 @@ export async function readState(): Promise<{ state: State; revision: number }> {
     .bind('main')
     .first<{ body: string; revision: number }>();
   if (!row) throw new Error('Workspace is unavailable.');
-  return { state: JSON.parse(row.body), revision: row.revision };
+  return {
+    state: normalizeState(JSON.parse(row.body) as State),
+    revision: row.revision,
+  };
 }
 export async function mutate<T>(fn: (state: State) => T): Promise<T> {
   // Optimistic compare-and-swap makes each complete workflow transition atomic.

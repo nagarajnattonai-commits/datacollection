@@ -19,7 +19,7 @@ The example enables **local demo login portals**. They are active only in a deve
 
 ## Try the complete workflow
 
-1. Select **Contributor**, record or upload an audio file, play it back, and submit it. Uploads accept WAV, MP3, WebM, M4A, OGG and FLAC, up to 20 MB. Retakes are new submissions; the rejected recording and its feedback remain in history.
+1. Select **Contributor**. Read the project brief and prompt, record or upload audio, and wait for the browser to check its format, duration and sound level. Play the recording, complete the project-driven intake fields and six quality checks, accept consent, then submit. A rejected item has a **Redo** action; its replacement keeps the same task and retains earlier attempts and reviewer feedback.
 2. Select **QA reviewer**, open **Quick Review**, claim a batch, listen, then approve or request a retake with feedback. Reviewers cannot claim their own submissions.
 3. Select **Team Leader** and open **Manage project**. With the default manual provider, import the real transcript for approved audio. Manual imports are labelled and do not pretend to be machine transcription. Administrators can perform the same project operations and are the only role that can manage team access.
 4. Open a Deep Review round. Switch to **QA reviewer**, claim a batch, listen, edit if necessary, and submit.
@@ -57,16 +57,35 @@ For Google, copy Supabase's provider callback URL into the Google Cloud OAuth cl
 
 If Supabase Auth is not configured, a trusted Sites identity remains available for existing hosted environments. The local demo is only for localhost development and is not an Internet-facing authentication system.
 
+## Contributor collection architecture
+
+Contributor requirements come from the server-owned project schema. The schema controls the brief, prompt or topic, language and locale, recording environment, duration, formats, target sample rate, bit depth, channel mode, consent copy, and dynamic intake fields. The page skips optional brief rows that have no value.
+
+The contributor APIs are:
+
+```text
+GET  /api/projects/:id/schema
+POST /api/recordings/upload-url
+POST /api/recordings
+GET  /api/contributors/me/recordings
+GET  /api/recordings/:id
+POST /api/recordings/:id/resubmit
+```
+
+Production uploads use short-lived, multipart R2 upload URLs. Audio travels from the browser to private object storage rather than through the application server. Each request has a contributor-scoped idempotency key, size/type/duration limits are repeated on the server, and completion verifies every expected part and the final object size. The background worker validates the stored file signature and checksum before the recording enters Quick Review. Upload sessions, processing jobs and contributor list/detail reads can be resumed safely after ordinary connection failures.
+
+Set the four `R2_*` values shown in `.env.example` with an R2 S3 API token that can write only the audio bucket. Configure the bucket CORS policy to allow the website origin to send `PUT` with `Content-Type` and expose the `ETag` response header. Keep the bucket private. Local demo mode keeps the smaller application upload path so the complete workflow can be tested without cloud credentials.
+
 ## Implementation and deliberate MVP limits
 
 - TypeScript, React, the Next.js-compatible Vinext runtime, Tailwind and shadcn UI.
 - Supabase PostgreSQL for hosted metadata, R2 for private audio, and a separate polling transcription worker. Local development falls back to D1 when Supabase is not configured.
 - The workspace is saved as a revisioned PostgreSQL JSONB document with secured relational operational views. A PostgreSQL compare-and-swap function atomically commits each entire workflow transition; conflicting requests re-read and re-check eligibility. This prevents duplicate claims, duplicate round submissions, and lost updates.
 - Original transcripts, per-round edits, Quick Review feedback, checksums and audit events are retained. A round's eligible task set is fixed when opened.
-- One project/workspace per deployment; a maximum of 500 recordings. This is a **pilot**, not the 1,000-user deployment described in the recommendations. It has not been load-tested for that scale.
-- Uploads pass through the application and use container-signature checks; duration, sample rate, channel count and silence detection are not independently measured. Header validation is not a complete media decoder or malware scan. Delivery is a JSON manifest plus separate protected audio downloads, not a ZIP package.
+- One project/workspace per deployment; a maximum of 500 active recording tasks. Direct object-storage uploads remove audio bandwidth from application workers, but the revisioned JSONB aggregate remains a pilot persistence model. Production concurrency of 500–1,500 users still needs environment-specific load testing and a move to independently writable normalized task/upload tables.
+- The browser measures decoded duration and sound energy before submission and shows the decoded sample rate when available. The worker verifies the stored object's size, container signature and SHA-256 checksum. Target bit depth and channel mode are project guidance; a full production media probe and malware scan remain deployment work. Delivery is a JSON manifest plus separate protected audio downloads, not a ZIP package.
 - A team activity log and queue counts are included. Daily targets, Slack alerts, payments, marketplace features and advanced analytics are deferred.
-- Before a larger rollout: move high-volume writes from the JSONB aggregate to independently writable normalized tables, add presigned uploads/downloads, move queues and cross-instance rate limits to BullMQ/Redis, and complete backup/restore, observability, load and dependency-security reviews.
+- Before a larger rollout: move high-volume writes from the JSONB aggregate to independently writable normalized tables, move queues and cross-instance rate limits to BullMQ/Redis, and complete backup/restore, observability, load and dependency-security reviews.
 
 The supplied stack document recommends Next.js, NestJS, PostgreSQL/Prisma, Redis/BullMQ and S3 for the production architecture. This implementation uses the equivalent Sites-compatible modular backend, Supabase PostgreSQL and private R2 storage while keeping the documented workflow semantics. See [docs/architecture.md](docs/architecture.md) for the mapping.
 

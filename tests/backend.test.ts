@@ -5,6 +5,14 @@ import { enforceRateLimit, requestId } from '../lib/api.ts';
 import { workspaceMetrics } from '../lib/metrics.ts';
 import { initialState, type Task } from '../lib/workflow.ts';
 import {
+  validateIntakeAnswers,
+  validateProjectConfig,
+} from '../lib/project-schema.ts';
+import {
+  parseR2DirectUploadConfig,
+  presignR2UploadPart,
+} from '../lib/r2-presign.ts';
+import {
   parseSupabaseStoreConfig,
   SupabaseWorkspaceStore,
 } from '../lib/supabase-store.ts';
@@ -14,6 +22,51 @@ test('audio submissions require every current quality criterion', () => {
   assert.deepEqual(validateAudioCriteria(JSON.stringify(all)), all);
   assert.deepEqual(validateAudioCriteria(all.slice(0, -1)), []);
   assert.deepEqual(validateAudioCriteria('not-json'), []);
+});
+
+test('project-driven intake accepts configured answers and rejects missing ones', () => {
+  const config = initialState().config;
+  assert.deepEqual(
+    validateIntakeAnswers(config.intakeFields, {
+      age_band: '25-34',
+      native_language: 'Tamil',
+      accent_region: 'Madurai',
+    }),
+    {
+      age_band: '25-34',
+      native_language: 'Tamil',
+      accent_region: 'Madurai',
+    },
+  );
+  assert.throws(() =>
+    validateIntakeAnswers(config.intakeFields, { age_band: '25-34' }),
+  );
+  assert.equal(
+    validateProjectConfig(config).technical.maxBytes,
+    20 * 1024 * 1024,
+  );
+});
+
+test('R2 upload parts receive bounded signed URLs without exposing the secret', async () => {
+  assert.equal(parseR2DirectUploadConfig({}), null);
+  const config = {
+    accountId: '0123456789abcdef0123456789abcdef',
+    bucket: 'fieldnote-audio',
+    accessKeyId: 'access-key',
+    secretAccessKey: 'do-not-expose-this-secret',
+  };
+  const url = await presignR2UploadPart(config, {
+    key: 'audio/main/person/file.wav',
+    uploadId: 'upload-id',
+    partNumber: 2,
+    contentType: 'audio/wav',
+    expiresSeconds: 600,
+    now: new Date('2026-01-02T03:04:05.000Z'),
+  });
+  assert.match(url, /partNumber=2/);
+  assert.match(url, /X-Amz-Expires=600/);
+  assert.match(url, /X-Amz-Signature=[a-f0-9]{64}/);
+  assert.doesNotMatch(url, /do-not-expose-this-secret/);
 });
 
 test('request ids accept bounded safe values and replace unsafe input', () => {

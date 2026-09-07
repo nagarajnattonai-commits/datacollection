@@ -11,6 +11,8 @@ import {
   closeRound,
   leaseJob,
   finishJob,
+  finishPostProcessJob,
+  leasePostProcessJob,
   retryJob,
   type Actor,
   type Task,
@@ -187,6 +189,47 @@ test('failed transcription retries stop at three attempts', () => {
   retryJob(s, admin, 'one', 9_000_001);
   assert.equal(s.tasks[0].job.attempts, 0);
   assert.equal(s.tasks[0].status, 'STT_PENDING');
+});
+test('uploaded recordings pass asynchronous validation before review', () => {
+  const s = initialState();
+  s.tasks.push({
+    ...recording(),
+    status: 'PROCESSING',
+    checksum: '',
+    durationSeconds: 12,
+    postProcess: { status: 'queued', attempts: 0, nextAttempt: 0 },
+  });
+  assert.equal(leasePostProcessJob(s, 1, 'audio-lease')?.id, 'one');
+  finishPostProcessJob(
+    s,
+    'one',
+    'audio-lease',
+    { checksum: 'verified', mime: 'audio/wav' },
+    2,
+  );
+  assert.equal(s.tasks[0].status, 'QUICK_REVIEW');
+  assert.equal(s.tasks[0].checksum, 'verified');
+});
+test('audio validation failures request a retake after bounded retries', () => {
+  const s = initialState();
+  s.tasks.push({
+    ...recording(),
+    status: 'PROCESSING',
+    postProcess: { status: 'queued', attempts: 0, nextAttempt: 0 },
+  });
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const now = attempt * 1_000_000;
+    leasePostProcessJob(s, now, `audio-${attempt}`);
+    finishPostProcessJob(
+      s,
+      'one',
+      `audio-${attempt}`,
+      { error: 'The file is incomplete.' },
+      now + 1,
+    );
+  }
+  assert.equal(s.tasks[0].status, 'REJECTED');
+  assert.match(s.tasks[0].quick?.note ?? '', /re-record/i);
 });
 test('file signatures reject text masquerading as audio', () => {
   assert.throws(() =>
